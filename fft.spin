@@ -8,19 +8,22 @@ CON
   BITS_NNM1=9
   BITS_DIFF=3
 
-VAR      
+VAR
+  long flag_ptr
   long real_ptr
   long imag_ptr
-  long vga_screen_ptr
-  long flag_ptr   
+  long scrn_ptr
   long cog            
 
 
-PUB start(_real_ptr) : okay
+PUB start(in_flag_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
 
-  longmove(@real_ptr,_real_ptr,4)
+  flag_ptr := in_flag_ptr
+  real_ptr := in_real_ptr
+  imag_ptr := in_imag_ptr
+  scrn_ptr := in_scrn_ptr
   stop
-  okay := cog := cognew(@init, @real_ptr) + 1
+  okay := cog := cognew(@init, @flag_ptr) + 1
   
 PUB stop
 '' stop floating point engine and release the cog
@@ -42,38 +45,20 @@ DAT
  
                         org
  
-init                    mov     in_ptr,PAR 
-                        rdlong  temp_ptr,in_ptr  'address of real buffer
-                        rdlong  cnt_rsample_ptr,temp_ptr
-                                         
-                        add     in_ptr,#1 << 2
-                        rdlong  temp_ptr,in_ptr                        
-                        rdlong  cnt_isample_ptr,temp_ptr  'address of imag buffer
-                        
-                        add     in_ptr,#1 << 2
-                        rdlong  temp_ptr,in_ptr  'address of real buffer
-                        rdlong  cnt_bitmap_ptr,temp_ptr   'address of vga screen
+init                    mov     in_ptr,PAR
+                        rdlong  asm_flag_ptr,in_ptr
 
-                        add     in_ptr,#1 << 2
-                        rdlong  temp_ptr,in_ptr
-                        rdlong  asm_flag_ptr,temp_ptr         'address of status flag
+                        add     in_ptr,#4
+                        rdlong  cnt_rsample_ptr,in_ptr
 
-                        wrlong  cnt_rsample_ptr,in_ptr
-                        
+                        add     in_ptr,#4
+                        rdlong  cnt_isample_ptr,in_ptr
+
+                        add     in_ptr,#4
+                        rdlong  cnt_bitmap_ptr,in_ptr
+
                         mov     fft_fr,cnt_rsample_ptr  ' real part buffer, 2048 bytes
                         mov     fft_fi,cnt_isample_ptr  ' imag part buffer, 2048 bytes
-
-                        rdlong  out_ptr,asm_flag_ptr       'value of status flag
-                        rdlong  temp_ptr,out_ptr
-                        'add     temp,#1
-                        wrlong  temp_ptr,#1
-
-                        mov     out_ptr,cnt_rsample_ptr
-                        wrword  out_ptr,#$01
-                        add     out_ptr,#2
-                        wrword  out_ptr,#$01                                                                        
-                        jmp     #init_end
-
 
                         mov     fft_n,#1
                         shl     fft_n,#BITS_NN          '1024 point fft
@@ -82,6 +67,15 @@ init                    mov     in_ptr,PAR
                         call    #lets_rock
                         call    #calc_abs
                         call    #plot
+
+                        mov     output,#1
+                        wrlong  output,asm_flag_ptr
+'inserted cog stop instead of infinite loop
+                        cogid   cog_id
+                        cogstop cog_id
+'end
+
+
 
  init_end                jmp     #init_end               ' end
  
@@ -473,7 +467,6 @@ fft_sgnwi               long    0  ' sign of wi
 
 
 in_ptr                  long    0
-out_ptr                 long    0
 asm_flag_ptr            long    0
-temp1                   long    0
-temp2                   long    0
+cog_id                  long    0
+output                  long $ACEDFACE
