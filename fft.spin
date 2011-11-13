@@ -1,7 +1,7 @@
 CON
 
   _clkmode = xtal1+pll16x
-  _clkfreq = 80_000_000
+  _xinfreq = 5_000_000
   
   NN=1024
   BITS_NN=10
@@ -9,17 +9,16 @@ CON
   BITS_DIFF=3
 
 VAR      
-  long real_ptr, imag_ptr, vga_screen_ptr
+  long real_ptr
+  long imag_ptr
+  long vga_screen_ptr
   long flag_ptr   
   long cog            
 
 
-PUB start(_real_ptr, _imag_ptr, _vga_screen_ptr, _flag) : okay
-  real_ptr := _real_ptr
-  imag_ptr := _imag_ptr
-  vga_screen_ptr := _vga_screen_ptr
-  flag_ptr := _flag  
+PUB start(_real_ptr) : okay
 
+  longmove(@real_ptr,_real_ptr,4)
   stop
   okay := cog := cognew(@init, @real_ptr) + 1
   
@@ -476,4 +475,5 @@ fft_sgnwi               long    0  ' sign of wi
 in_ptr                  long    0
 out_ptr                 long    0
 asm_flag_ptr            long    0
-temp_ptr                long    0
+temp1                   long    0
+temp2                   long    0
