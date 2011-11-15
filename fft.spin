@@ -26,7 +26,7 @@ PUB start(in_flag_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
   okay := cog := cognew(@init, @flag_ptr) + 1
   
 PUB stop
-'' stop floating point engine and release the cog
+'' stop fft engine and release the cog
 
   if cog
     cogstop(cog~ - 1)
@@ -63,19 +63,22 @@ init                    mov     in_ptr,PAR
                         mov     fft_n,#1
                         shl     fft_n,#BITS_NN          '1024 point fft
  
-                        call    #decimate
+loop                   call    #decimate
                         call    #lets_rock
                         call    #calc_abs
                         call    #plot
 
                         mov     output,#1
                         wrlong  output,asm_flag_ptr
+{{
 'inserted cog stop instead of infinite loop
                         cogid   cog_id
                         cogstop cog_id
 'end
-
-
+}}
+flag_wait               rdlong  output,asm_flag_ptr
+                        tjnz    output,#flag_wait
+                        jmp     #loop
 
  init_end                jmp     #init_end               ' end
  
