@@ -12,8 +12,7 @@ VAR
   long flag_ptr
   long real_ptr
   long imag_ptr
-  long scrn_ptr
-  long cog            
+  long scrn_ptr            
 
 
 PUB start(in_flag_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
@@ -22,10 +21,9 @@ PUB start(in_flag_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
   real_ptr := in_real_ptr
   imag_ptr := in_imag_ptr
   scrn_ptr := in_scrn_ptr
-  stop
-  okay := cog := cognew(@init, @flag_ptr) + 1
+  okay := cognew(@init, @flag_ptr) + 1
   
-PUB stop
+PUB stop(cog)
 '' stop fft engine and release the cog
 
   if cog
@@ -33,54 +31,61 @@ PUB stop
 
 
     
-DAT
-'.section cog cog0 ' needed to generate     
- 
+DAT 
 ' Converted to Propeller Assembler by Pacito.Sys, based on int_fft.c by Tom Roberts
 ' with portability by Malcolm Slaney.
 ' Distributed under the terms of the GNU GPL v2.0.
 '
 ' Integer FFT
 ' 16 bit signed values are used
+
+' Modified by Pete Hemery - Oct, Nov, Dec 2011 
+                        org     0
  
-                        org
- 
-init                    mov     in_ptr,PAR
-                        rdlong  asm_flag_ptr,in_ptr
-
-                        add     in_ptr,#4
-                        rdlong  cnt_rsample_ptr,in_ptr
-
-                        add     in_ptr,#4
-                        rdlong  cnt_isample_ptr,in_ptr
-
-                        add     in_ptr,#4
-                        rdlong  cnt_bitmap_ptr,in_ptr
-
-                        mov     fft_fr,cnt_rsample_ptr  ' real part buffer, 2048 bytes
-                        mov     fft_fi,cnt_isample_ptr  ' imag part buffer, 2048 bytes
-
-                        mov     fft_n,#1
+init                    mov     fft_n,#1
                         shl     fft_n,#BITS_NN          '1024 point fft
- 
-loop                   call    #decimate
+                        
+                        mov     in_ptr,PAR              
+                        rdlong  asm_flag_ptr,in_ptr     'Flag Pointer
+
+                        add     in_ptr,#4
+                        rdlong  fft_fr,in_ptr           'Real Buffer Pointer  - 2048 bytes
+
+                        add     in_ptr,#4
+                        rdlong  fft_fi,in_ptr           'Imaginary Buffer Pointer - 2048 bytes
+
+                        add     in_ptr,#4
+                        rdlong  cnt_bitmap_ptr,in_ptr   'VGA Screen Bitmap Pointer
+
+                        mov     peak_ptr,asm_flag_ptr
+                        add     peak_ptr,#4             'Peak Value Array Pointer
+                        
+                        mov     timer_val,cnt           'keeping track of current value
+                        wrlong  timer_val,asm_flag_ptr  'use flag as a time keeper
+
+                        jmp     #flag_wait
+
+loop                    call    #decimate
                         call    #lets_rock
                         call    #calc_abs
                         call    #plot
 
-                        mov     output,#1
-                        wrlong  output,asm_flag_ptr
+                        mov     timer_val,cnt           'keeping track of current value
+                        wrlong  timer_val,asm_flag_ptr  'use flag as a time keeper
+                        nop     'wait for next hub window
+
+flag_wait               rdlong  temp,asm_flag_ptr
+                        test    temp,timer_val  wz      'wait until flag changes before looping again
+              if_z      jmp     #flag_wait                                            
+                        jmp     #loop
+
 {{
 'inserted cog stop instead of infinite loop
                         cogid   cog_id
                         cogstop cog_id
 'end
 }}
-flag_wait               rdlong  output,asm_flag_ptr
-                        tjnz    output,#flag_wait
-                        jmp     #loop
-
- init_end                jmp     #init_end               ' end
+ init_end               jmp     #init_end               ' end
  
 ' bit-reversal, uses the nice rev instruction
 decimate                mov     fft_ii,#1
@@ -436,8 +441,6 @@ cnt_sgn                 long    $8000
 cnt_sin_90              long    $0800
 cnt_sin_180             long    $1000
 cnt_sin_table           long    $7000
-cnt_rsample_ptr         long    $800
-cnt_isample_ptr         long    $1000
 cnt_bitmap_ptr          long    $4000
 cnt_add_ptr             long    512
  
@@ -469,7 +472,15 @@ fft_sgnwr               long    0  ' sign of wr
 fft_sgnwi               long    0  ' sign of wi
 
 
+peak_ptr                long    0
+peak_1                  long    0
+peak_2                  long    0
+peak_3                  long    0
+peak_4                  long    0
+
+timer_val               long    0
+
 in_ptr                  long    0
 asm_flag_ptr            long    0
-cog_id                  long    0
-output                  long $ACEDFACE
+cog_id                  long    0        
+temp                    long    0
