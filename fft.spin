@@ -75,8 +75,8 @@ loop                    call    #decimate
                         nop     'wait for next hub window
 
 flag_wait               rdlong  temp,asm_flag_ptr
-                        test    temp,timer_val  wz      'wait until flag changes before looping again
-              if_z      jmp     #flag_wait                                            
+                        testn   temp,timer_val  wz      'wait until flag changes before looping again
+              if_z      jmp     #flag_wait
                         jmp     #loop
 
 {{
