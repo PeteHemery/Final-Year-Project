@@ -435,7 +435,7 @@ putpix                  mov      fft_qi,#239
                         or       fft_ll,fft_k
                         wrbyte   fft_ll,fft_qr
 putpix_ret              ret
- 
+
 ' constants
 cnt_sgn                 long    $8000
 cnt_sin_90              long    $0800
