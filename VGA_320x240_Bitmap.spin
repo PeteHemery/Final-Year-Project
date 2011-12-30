@@ -110,7 +110,9 @@ PUB start(BasePin, ColorPtr, PixelPtr, SyncPtr) : okay | i, j
   reg_dirb := i & !j
   longmove(@color_base, @ColorPtr, 2)
   if (cog := cognew(@init, SyncPtr) + 1)
-    return true
+    return cog
+  else
+    return false
 
 
 PUB stop | i
