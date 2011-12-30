@@ -2,27 +2,31 @@ CON
 
   _clkmode = xtal1+pll16x
   _xinfreq = 5_000_000
-  
-  NN=1024
-  BITS_NN=10
-  BITS_NNM1=9
+
+  BITS_NN= 10
+  BITS_NNM1=BITS_NN-1
+  NN= |<BITS_NN                 'Nifty bitwise decode
   BITS_DIFF=3
+
+  param_count = 5
 
 VAR
   long flag_ptr
+  long window_ptr
   long real_ptr
   long imag_ptr
   long scrn_ptr            
 
 
-PUB start(in_flag_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
+PUB start(in_flag_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr,in_win_ptr) : okay
 
   flag_ptr := in_flag_ptr
   real_ptr := in_real_ptr
   imag_ptr := in_imag_ptr
   scrn_ptr := in_scrn_ptr
+  window_ptr := in_win_ptr
   okay := cognew(@init, @flag_ptr) + 1
-  
+
 PUB stop(cog)
 '' stop fft engine and release the cog
 
@@ -44,9 +48,12 @@ DAT
  
 init                    mov     fft_n,#1
                         shl     fft_n,#BITS_NN          '1024 point fft
-                        
-                        mov     in_ptr,PAR              
+
+                        mov     in_ptr,PAR
                         rdlong  asm_flag_ptr,in_ptr     'Flag Pointer
+
+                        add     in_ptr,#4
+                        rdlong  asm_window_ptr,in_ptr   'Window Multiplier Array Pointer
 
                         add     in_ptr,#4
                         rdlong  fft_fr,in_ptr           'Real Buffer Pointer  - 2048 bytes
@@ -482,5 +489,7 @@ timer_val               long    0
 
 in_ptr                  long    0
 asm_flag_ptr            long    0
+asm_window_ptr          long    0
 cog_id                  long    0        
 temp                    long    0
+
