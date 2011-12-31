@@ -12,19 +12,17 @@ CON
 
 VAR
   long flag_ptr
-  long window_ptr
   long real_ptr
   long imag_ptr
   long scrn_ptr            
 
 
-PUB start(in_flag_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr,in_win_ptr) : okay
+PUB start(in_flag_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
 
   flag_ptr := in_flag_ptr
   real_ptr := in_real_ptr
   imag_ptr := in_imag_ptr
   scrn_ptr := in_scrn_ptr
-  window_ptr := in_win_ptr
   okay := cognew(@init, @flag_ptr) + 1
 
 PUB stop(cog)
@@ -36,6 +34,8 @@ PUB stop(cog)
 
     
 DAT 
+' http://propeller.wikispaces.com/FFT
+
 ' Converted to Propeller Assembler by Pacito.Sys, based on int_fft.c by Tom Roberts
 ' with portability by Malcolm Slaney.
 ' Distributed under the terms of the GNU GPL v2.0.
@@ -53,9 +53,6 @@ init                    mov     fft_n,#1
                         rdlong  asm_flag_ptr,in_ptr     'Flag Pointer
 
                         add     in_ptr,#4
-                        rdlong  asm_window_ptr,in_ptr   'Window Multiplier Array Pointer
-
-                        add     in_ptr,#4
                         rdlong  fft_fr,in_ptr           'Real Buffer Pointer  - 2048 bytes
 
                         add     in_ptr,#4
@@ -69,8 +66,14 @@ init                    mov     fft_n,#1
                         
                         mov     timer_val,cnt           'keeping track of current value
                         wrlong  timer_val,asm_flag_ptr  'use flag as a time keeper
+'                        wrlong  zero,asm_flag_ptr
+                        nop
+                        nop
+flag1_wait              rdlong  temp,asm_flag_ptr
+                        cmp     temp,timer_val  wz      'wait until flag changes before looping again
+              if_z      jmp     #flag1_wait
 
-                        jmp     #flag_wait
+'                        jmp     #flag_wait
 
 loop                    call    #decimate
                         call    #lets_rock
@@ -80,10 +83,10 @@ loop                    call    #decimate
                         mov     timer_val,cnt           'keeping track of current value
                         wrlong  timer_val,asm_flag_ptr  'use flag as a time keeper
                         nop     'wait for next hub window
-
+                        nop
 flag_wait               rdlong  temp,asm_flag_ptr
-                        testn   temp,timer_val  wz      'wait until flag changes before looping again
-              if_z      jmp     #flag_wait
+                        cmp     temp,#0         wz      'wait until flag changes before looping again
+              if_nz     jmp     #flag_wait
                         jmp     #loop
 
 {{
@@ -492,4 +495,5 @@ asm_flag_ptr            long    0
 asm_window_ptr          long    0
 cog_id                  long    0        
 temp                    long    0
-
+zero                    long    0
+windowing               res     256
