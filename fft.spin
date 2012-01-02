@@ -3,7 +3,7 @@ CON
   _clkmode = xtal1+pll16x
   _xinfreq = 5_000_000
 
-  BITS_NN= 10
+  BITS_NN= 11
   BITS_NNM1=BITS_NN-1
   NN= |<BITS_NN                 'Nifty bitwise decode
   BITS_DIFF=3
@@ -57,7 +57,7 @@ init                    mov     fft_n,#1
                         rdlong  asm_flag_ptr,in_ptr     'Flag Pointer
 
                         add     in_ptr,#4
-                        rdlong  asm_time_ptr,in_ptr           'Time Keeping Pointer
+                        rdlong  asm_time_ptr,in_ptr     'Time Keeping Pointer
 
                         add     in_ptr,#4
                         rdlong  fft_fr,in_ptr           'Real Buffer Pointer  - 2048 bytes
@@ -75,7 +75,6 @@ flag_wait               rdlong  temp,asm_flag_ptr   wz  'wait until flag changes
               if_nz     jmp     #flag_wait
                         mov     asm_cnt,cnt
                         wrlong  asm_cnt,asm_time_ptr    'keep track of the time
-
 
 loop                    call    #decimate
                         call    #lets_rock
