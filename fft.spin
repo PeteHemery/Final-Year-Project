@@ -8,21 +8,25 @@ CON
   NN= |<BITS_NN                 'Nifty bitwise decode
   BITS_DIFF=3
 
-  param_count = 5
-
 VAR
   long flag_ptr
+  long time_ptr
   long real_ptr
   long imag_ptr
-  long scrn_ptr            
+  long scrn_ptr
+
+    'hann window multiplier
+'  word  window[NN / 2]
 
 
-PUB start(in_flag_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
+PUB start(in_flag_ptr,in_time_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
 
   flag_ptr := in_flag_ptr
+  time_ptr := in_time_ptr
   real_ptr := in_real_ptr
   imag_ptr := in_imag_ptr
   scrn_ptr := in_scrn_ptr
+
   okay := cognew(@init, @flag_ptr) + 1
 
 PUB stop(cog)
@@ -53,6 +57,9 @@ init                    mov     fft_n,#1
                         rdlong  asm_flag_ptr,in_ptr     'Flag Pointer
 
                         add     in_ptr,#4
+                        rdlong  asm_time_ptr,in_ptr           'Time Keeping Pointer
+
+                        add     in_ptr,#4
                         rdlong  fft_fr,in_ptr           'Real Buffer Pointer  - 2048 bytes
 
                         add     in_ptr,#4
@@ -63,40 +70,32 @@ init                    mov     fft_n,#1
 
                         mov     peak_ptr,asm_flag_ptr
                         add     peak_ptr,#4             'Peak Value Array Pointer
-                        
-                        mov     timer_val,cnt           'keeping track of current value
-                        wrlong  timer_val,asm_flag_ptr  'use flag as a time keeper
-'                        wrlong  zero,asm_flag_ptr
-                        nop
-                        nop
-flag1_wait              rdlong  temp,asm_flag_ptr
-                        cmp     temp,timer_val  wz      'wait until flag changes before looping again
-              if_z      jmp     #flag1_wait
 
-'                        jmp     #flag_wait
+flag_wait               rdlong  temp,asm_flag_ptr   wz  'wait until flag changes before looping again
+              if_nz     jmp     #flag_wait
+                        mov     asm_cnt,cnt
+                        wrlong  asm_cnt,asm_time_ptr    'keep track of the time
+
 
 loop                    call    #decimate
                         call    #lets_rock
                         call    #calc_abs
                         call    #plot
 
-                        mov     timer_val,cnt           'keeping track of current value
-                        wrlong  timer_val,asm_flag_ptr  'use flag as a time keeper
-                        nop     'wait for next hub window
-                        nop
-flag_wait               rdlong  temp,asm_flag_ptr
-                        cmp     temp,#0         wz      'wait until flag changes before looping again
-              if_nz     jmp     #flag_wait
-                        jmp     #loop
+                        add     one,#1
+                        wrlong  one,asm_flag_ptr        'ack
+                        mov     asm_cnt,cnt
+                        wrlong  asm_cnt,asm_time_ptr    'keep track of the time
 
+                        jmp     #flag_wait
 {{
 'inserted cog stop instead of infinite loop
                         cogid   cog_id
                         cogstop cog_id
 'end
-}}
+
  init_end               jmp     #init_end               ' end
- 
+}}
 ' bit-reversal, uses the nice rev instruction
 decimate                mov     fft_ii,#1
                         mov     fft_ll,fft_n
@@ -492,8 +491,12 @@ timer_val               long    0
 
 in_ptr                  long    0
 asm_flag_ptr            long    0
+asm_time_ptr            long    0
+asm_cnt                 long    0
+
 asm_window_ptr          long    0
 cog_id                  long    0        
 temp                    long    0
 zero                    long    0
+one                     long    0
 windowing               res     256
