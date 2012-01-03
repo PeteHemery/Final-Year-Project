@@ -3,7 +3,7 @@ CON
   _clkmode = xtal1+pll16x
   _xinfreq = 5_000_000
 
-  BITS_NN= 11
+  BITS_NN= 10
   BITS_NNM1=BITS_NN-1
   NN= |<BITS_NN                 'Nifty bitwise decode
   BITS_DIFF=3
