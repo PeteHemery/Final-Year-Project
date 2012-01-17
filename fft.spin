@@ -15,10 +15,6 @@ VAR
   long imag_ptr
   long scrn_ptr
 
-    'hann window multiplier
-'  word  window[NN / 2]
-
-
 PUB start(in_flag_ptr,in_time_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
 
   flag_ptr := in_flag_ptr
@@ -35,8 +31,6 @@ PUB stop(cog)
   if cog
     cogstop(cog~ - 1)
 
-
-    
 DAT 
 ' http://propeller.wikispaces.com/FFT
 
@@ -71,10 +65,10 @@ init                    mov     fft_n,#1
                         mov     peak_ptr,asm_flag_ptr
                         add     peak_ptr,#4             'Peak Value Array Pointer
 
-flag_wait               rdlong  temp,asm_flag_ptr   wz  'wait until flag changes before looping again
+flag_wait               rdlong  temp,asm_flag_ptr   wz  'wait until flag changes to 0 before looping
               if_nz     jmp     #flag_wait
                         mov     asm_cnt,cnt
-                        wrlong  asm_cnt,asm_time_ptr    'keep track of the time
+                        wrlong  asm_cnt,asm_time_ptr    'keep track of the time when the flag changed
 
 loop                    call    #decimate
                         call    #lets_rock
@@ -118,7 +112,7 @@ ldecimate_5             add     fft_ii,#1
 decimate_ret            ret
  
 ' Calcs the 1024 point-FFT using 16 bit signed integers, some calculations
-' are don with 32 bits
+' are done with 32 bits
  
 lets_rock               mov     fft_ll,#1
                         mov     fft_k,#BITS_NNM1
@@ -498,4 +492,3 @@ cog_id                  long    0
 temp                    long    0
 zero                    long    0
 one                     long    0
-windowing               res     256
