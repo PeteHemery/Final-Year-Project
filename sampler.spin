@@ -10,9 +10,6 @@ CON
 ' sample   sample
 ' bits       rate
 ' ----------------
-' 8       313 KHz
-' 9       156 KHz
-' 10       78 KHz
 ' 11       39 KHz
 ' 12     19.5 KHz
 ' 13     9.77 KHz
@@ -45,7 +42,7 @@ asm_entry     mov       dira,asm_dira                   'make pin 8 (ADC) output
               movi      ctra,#%01001_000
               mov       frqa,#1                         'microphone now setup
 
-              cogid     cog_id
+'              cogid     cog_id
 
               mov       in_ptr,PAR                      'get the address of the first hub ram pointer
               movd      :patch,#asm_flag_ptr            'patch the rdlong instruction with the address of cog ram
@@ -58,8 +55,9 @@ asm_entry     mov       dira,asm_dira                   'make pin 8 (ADC) output
               mov       number_of_ffts,t2
               mov       t3,#4'work out how many cog longs to jump
               sub       t3,t2'4-num_of_ffts
-              mov       t2,t3'number of iterations from the end of the loop below
-              add       t2,#1'to trigger at the correct iteration
+              add       t2,#1'trigger at the correct iteration below
+
+              wrlong    t3,asm_flag_ptr
               shl       t3,#9'set for destination field of :patch instruction
 
 :rdloop

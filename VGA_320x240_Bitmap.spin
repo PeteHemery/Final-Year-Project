@@ -129,7 +129,7 @@ DAT
 '* Assembly language VGA 2-color bitmap driver *
 '***********************************************
 
-                        org                             'set origin to $000 for start of program
+                        org    0                        'set origin to $000 for start of program
 
 ' Initialization code - init I/O
                                                                                               

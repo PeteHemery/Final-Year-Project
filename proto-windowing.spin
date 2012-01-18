@@ -108,16 +108,13 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on
 
       pst.Str(String(pst#NL,"flag value: "))
       pst.Dec(long[@fft_flag][i])
+      pst.Str(String(pst#NL,"buffer pointer value: "))
+      pst.Dec(long[@buffer_ptr][i])
 
 
   repeat i from 0 to num_of_ffts - 1
     fft_flag_prev[i] := fft_flag_val[i] := long[@fft_flag][i] 'use local variables to store status
-{    if pst_on
-      pst.Str(String(pst#NL,"FFT "))
-      pst.Dec(i+1)
-      pst.Str(String(" flag before loop: "))
-      pst.Dec(fft_flag_val[i])
-}
+
   if pst_on
     pst.Str(String(pst#NL,"audio_flag on launch: "))
     pst.Dec(long[@aud_flag])
@@ -154,7 +151,7 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on
 
       fft_time_val[i] := long[@fft_time][i]
       if fft_time_val[i] <> fft_time_prev[i]
-        if fft_flag_val[i] <> 0
+'        if fft_flag_val[i] <> 0
           if pst_on
             pst.Str(String(pst#NL,"FFT "))
             pst.Dec(i+1)
