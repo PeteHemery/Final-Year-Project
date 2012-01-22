@@ -16,7 +16,7 @@ CON
   peaks    = 1
   num_of_ffts = 2
 
-  TIMEOUT = 40000
+  TIMEOUT = 60000
   magic    = 5148    'time between fft cog launches. seems like a magic number!
 
 VAR

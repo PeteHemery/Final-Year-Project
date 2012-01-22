@@ -2,8 +2,10 @@
 
 
 CON
-        _clkmode = xtal1 + pll16x                                               'Standard clock mode * crystal frequency = 80 MHz
-        _xinfreq = 5_000_000
+  _clkmode = xtal1 + pll16x                                               'Standard clock mode * crystal frequency = 80 MHz
+  _xinfreq = 5_000_000
+  CLK_FREQ = ((_clkmode-xtal1)>>6)*_xinfreq
+  MS_001 = CLK_FREQ / 1_000
 
 ' At 80MHz the ADC/DAC sample resolutions and rates are as follows:
 '
@@ -16,6 +18,9 @@ CON
 ' 14     4.88 KHz
 
   bits = 14                     'try different values from table here
+
+  sample_rate = CLK_FREQ / (1024 * 6)  'Hz
+
 
 VAR
   long  cog                                             'Cog flag/id
@@ -49,16 +54,16 @@ asm_entry     mov       dira,asm_dira                   'make pin 8 (ADC) output
               rdlong    asm_flag_ptr,in_ptr             'setup loop counter
               rdlong    t1,asm_flag_ptr                 'number of parameters stored in flag pointer
 
-              mov       t2,t1'copy number of params
-              sub       t2,#3'remove required params
-              shr       t2,#1'how many ffts
+              mov       t2,t1                           'copy number of params
+              sub       t2,#3                           'remove required params
+              shr       t2,#1                           'how many ffts
               mov       number_of_ffts,t2
-              mov       t3,#4'work out how many cog longs to jump
-              sub       t3,t2'4-num_of_ffts
-              add       t2,#1'trigger at the correct iteration below
+              mov       t3,#4                           'work out how many cog longs to jump
+              sub       t3,t2                           '4-num_of_ffts=number of cells to jump
+              add       t2,#1                           'trigger at the correct iteration below
 
               wrlong    t3,asm_flag_ptr
-              shl       t3,#9'set for destination field of :patch instruction
+              shl       t3,#9                           'set for destination field of :patch instruction
 
 :rdloop
 :patch        rdlong    0-0,in_ptr
@@ -72,7 +77,7 @@ asm_entry     mov       dira,asm_dira                   'make pin 8 (ADC) output
 
               mov       buffer_number,#0
               mov       fft_ptr,asm_fft1_ptr             'use fft_ptr as relevent flag pointer
-              mov       in_ptr,asm_buffer1_ptr           'use in_ptr as input to the array
+              mov       in_ptr,asm_buffer1_ptr           'use in_ptr as input for the array
 
               sub       asm_array_size,#1               'more convenient for checking for end of array
 
@@ -157,7 +162,8 @@ one                     long    1
 
 d0                      long    1 << 9
 
-asm_cycles              long    |< bits - 1             'sample time
+'asm_cycles    long      |< bits - 1                     'sample time
+asm_cycles    long      sample_rate - 1                 'sample time
 asm_dira                long    $00000200               'output mask
 
 number_of_ffts          long    0
