@@ -19,7 +19,8 @@ CON
 
   bits = 14                     'try different values from table here
 
-  sample_rate = CLK_FREQ / (1024 * 6)  'Hz
+  KHz = 6
+  sample_rate = CLK_FREQ / (1024 * KHz)  'Hz
 
 
 VAR

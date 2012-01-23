@@ -17,7 +17,6 @@ CON
   num_of_ffts = 2
 
   TIMEOUT = 60000
-  magic    = 5148    'time between fft cog launches. seems like a magic number!
 
 VAR
 
@@ -86,7 +85,7 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on
   repeat i from 0 to num_of_ffts - 1
     j := i*fft#NN
     fft_flag_val[i] := fft.start(@fft_flag[i],@fft_time[i],@real_buffer[j],@imag_buffer[j],@pixels)
-    waitcnt(magic + cnt)
+    waitcnt(clkfreq + cnt)
     if pst_on
       pst.Str(String(pst#NL,"j:"))
       pst.Dec(j)
