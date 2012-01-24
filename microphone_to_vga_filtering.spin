@@ -24,6 +24,8 @@ CON
   MS_001 = CLK_FREQ / 1_000
 
   sample_rate = CLK_FREQ / (1024 * KHz)  'Hz
+  time_taken =(((sample_rate / 8) * 512) / 10)   '80MHz/8 then /10 because of rounding errors.
+                                                 'time for 512 samples * refresh_num -> in microseconds
   averaging = 13                '2-power-n samples to compute average with
   attenuation = 4               'try 0-4
   threshold = 20                'for detecting peak amplitude
@@ -47,7 +49,8 @@ VAR
   long fir_busy, fir_data
   long flag
   long samples_ptr
-  long frequency
+  long cycles_count
+  long completed_count
 
   word samples[1024]'filter[512]
 
@@ -55,7 +58,7 @@ VAR
   word  colors[tiles], ypos[512]
 
 
-PUB start | i, startTime, endTime, time_taken, debounce, dcount, f, freq
+PUB start | f, i, startTime, endTime, freq
 
   'start vga
   vga.start(16, @colors, @pixels, @sync)
@@ -74,16 +77,12 @@ PUB start | i, startTime, endTime, time_taken, debounce, dcount, f, freq
   pst.Clear
   long[@flag] := 0
   long[@samples_ptr] := @samples
-  long[@frequency] := 10
 
   'implant pointers and launch assembly program into COG
   asm_pixels := @pixels
   asm_ypos := @ypos
   cognew(@asm_entry, @flag)
 
-'  time_taken := ((10_000_000) / (1024 * KHz) * 512) / 10 ' 0.071424 sec
-  time_taken := ((sample_rate / 8) * 1024) / 10          '80MHz, 512 samples -> microseconds
-  dcount := 0
   pst.str(string("Time Taken: "))
   pst.dec(time_taken)
   pst.newline
@@ -92,19 +91,19 @@ PUB start | i, startTime, endTime, time_taken, debounce, dcount, f, freq
   repeat
 {      pst.str(string("Flag: "))
       pst.dec(long[@flag])              ' print whole part
-      pst.newline}
+      pst.newline
+      pst.str(string("cycle_count: "))
+      pst.dec(long[@cycles_count])
+      pst.newline
+      pst.str(string("completed_count: "))
+      pst.dec(long[@completed_count])
+      pst.newline
+}
+
     repeat while long[@flag] == f
     f := long[@flag]
-
-    if (long[@frequency] == debounce)
-      if (long[@frequency] <> 0)
-        dcount++
-    else
-      dcount := 0
-    debounce := long[@frequency]
-
-    if (dcount => 2 AND f == 1)
-      freq := (((long[@frequency]) * 1_000_000) / (time_taken / 1000)) / 10
+    if (long[@completed_count])
+      freq := ( ((long[@cycles_count]/long[@completed_count]) * 1_000_000) / (time_taken / 1000) ) / 10
       pst.newline
       pst.str(string("Freq: "))
       pst.dec(freq)              ' print whole part
@@ -113,8 +112,14 @@ PUB start | i, startTime, endTime, time_taken, debounce, dcount, f, freq
       pst.char(".")
       pst.dec(freq//100)             ' print fractional part
       pst.str(string("Hz",pst#NL))
-'    else
-'      pst.str(string("No",pst#NL))
+
+      pst.str(string("cycle_count: "))
+      pst.dec(long[@cycles_count])
+      pst.newline
+      pst.str(string("completed_count: "))
+      pst.dec(long[@completed_count])
+      pst.newline
+
 '    waitcnt((500 * MS_001) +cnt)
 {
     repeat while flag == 1
@@ -182,6 +187,8 @@ asm_entry     mov       flag_addr,PAR
 
               mov       cycles_addr,flag_addr
               add       cycles_addr,#8
+              mov       complete_addr,cycles_addr
+              add       complete_addr,#4
 
               mov       asm_fir_busy,flag_addr
               sub       asm_fir_busy,#8
@@ -250,22 +257,26 @@ if_z_and_nc   mov       mode,#2
 if_z          jmp       #:loop
 
 '' Check number of 0 crossings
-              cmps      asm_justify,asm_sample  wc
+              cmps      asm_justify,asm_sample  wc'carry is written if source is larger
 if_nc         jmp       #:less
-if_c          jmp       #:more
-              jmp       #:justify
+              mov       prev_cross,#1           ' Sample is more than 0
+              jmp       #:justify               ' Don't count it
 ' Sample is less than 0
 :less         cmps      prev_cross,#0           wc
-if_c          jmp       #:justify                       'Last crossing was also below 0
+if_c          jmp       #:justify               'Last crossing was also below 0
               mov       prev_cross,minus_one
-              add       cycles_cnt,#1
-              jmp       #:justify
 
-' Sample is more than 0
-:more         cmps      prev_cross,#0          wc
-if_nc         jmp       #:justify                       'Last crossing was also abpve 0
-              mov       prev_cross,#1
-
+              mov       temp,peak_max
+              sub       temp,peak_min
+'              mov       temp,trig_max
+'              sub       temp,trig_min
+              cmp       temp,#threshold         wc'carry is written if source is larger
+              cmp       counting,#0             wz
+if_z_and_nc   mov       start_time,cnt          'above threshold, setup counting
+if_z_and_nc   mov       counting,#1
+if_nz_and_nc  add       cycles_cnt,#1           'if we're counting already, keep counting
+if_c          mov       counting,#0             'under threshold, let the end know
+if_c          mov       completed,#0
 '' End
 
 :justify
@@ -310,16 +321,28 @@ if_z          mov       temp,#1
 if_nz         mov       temp,#2
               wrlong    temp,flag_addr
 
-if_nz         jmp       #:loop                          'wait for next sample period
 
-              mov       temp,peak_max
-              sub       temp,peak_min
-              cmp       temp,#threshold         wc
-if_c          mov       temp,#0
-if_nc         mov       temp,cycles_cnt
-              wrlong    temp,cycles_addr
+              cmp       counting,#0             wz
+if_z          mov       cycles_total,#0
+if_z          mov       completed,#0
+if_z          jmp       #:write_totals
+              cmp       completed,#0            wz
+if_nz         jmp       #:save_totals
+              cmp       start_time,begin_time   wz
+if_nz         mov       cycles_total,#0
+if_nz         mov       completed,#0
+if_nz         jmp       #:write_totals
+
+:save_totals
+              add       cycles_total,cycles_cnt
+              add       completed,#1
+:write_totals
+              wrlong    cycles_total,cycles_addr
+              wrlong    completed,complete_addr
               mov       cycles_cnt,#0
 
+              mov       begin_time,cnt
+              mov       start_time,begin_time
               jmp       #:loop                          'wait for next sample period
 '
 '
@@ -352,22 +375,31 @@ peak_load     long      512
 mode          long      0
 bignum        long      $FFFFFFFF
 average_load  long      |< averaging
+
 minus_one     long      -1
+prev_cross    long      0
+
+cycles_cnt    long      0
+cycles_total  long      0
+completed     long      0
+counting      long      0
+start_time    long      0
+begin_time    long      0
+
 
 'Added to export
 temp          long      0
 which_half    long      0
 top_half      long      1024        '2 bytes per word, half way through the 1024 word array
 output_pos    long      0
-buffer_addr   long      0
-flag_addr     long      0
-cycles_addr   long      0
-cycles_cnt    long      0
-prev_cross    long      0
+buffer_addr   res       1
+flag_addr     res       1
+cycles_addr   res       1
+complete_addr res       1
 
 'Filter
-asm_fir_busy  long      0
-asm_fir_data  long      0
+asm_fir_busy  res       1
+asm_fir_data  res       1
 
 asm_justify   res       1
 trig_min      res       1
