@@ -58,7 +58,7 @@ VAR
   word  colors[tiles], ypos[512]
 
 
-PUB start | f, i, startTime, endTime, freq
+PUB start | f, i, p, startTime, endTime, freq, time, running_total
 
   'start vga
   vga.start(16, @colors, @pixels, @sync)
@@ -102,8 +102,13 @@ PUB start | f, i, startTime, endTime, freq
 
     repeat while long[@flag] == f
     f := long[@flag]
-    if (long[@completed_count])
-      freq := ( ((long[@cycles_count]/long[@completed_count]) * 1_000_000) / (time_taken / 1000) ) / 10
+{    if (long[@completed_count] => 2)
+      pst.newline
+      time := (long[@completed_count] * time_taken) / 100
+      pst.dec(time)
+      pst.newline
+      freq := ((long[@cycles_count] * 1_000_000) / time)
+      running_total += freq
       pst.newline
       pst.str(string("Freq: "))
       pst.dec(freq)              ' print whole part
@@ -118,7 +123,28 @@ PUB start | f, i, startTime, endTime, freq
       pst.newline
       pst.str(string("completed_count: "))
       pst.dec(long[@completed_count])
+      pst.newline}
+    if(long[@completed_count])
+      time := (long[@completed_count] * time_taken) / 100
+      freq := ((long[@cycles_count] * 1_000_000) / time)
+      running_total += freq
+    if (long[@completed_count] == 0 and p <> 0)
+      time := (p * time_taken) / 100
+      pst.str(string("completed_count: "))
+      pst.dec(p)
       pst.newline
+      pst.str(string("time: "))
+      pst.dec(time)
+      pst.newline
+      pst.str(string("Freq: "))
+      freq := (running_total / p)
+      pst.dec(freq/100)
+      pst.char(".")
+      pst.dec(freq//100)
+      pst.str(string("Hz",pst#NL))
+
+      running_total := 0
+    p := long[@completed_count]
 
 '    waitcnt((500 * MS_001) +cnt)
 {
@@ -266,10 +292,10 @@ if_nc         jmp       #:less
 if_c          jmp       #:justify               'Last crossing was also below 0
               mov       prev_cross,minus_one
 
-              mov       temp,peak_max
-              sub       temp,peak_min
-'              mov       temp,trig_max
-'              sub       temp,trig_min
+'              mov       temp,peak_max
+'              sub       temp,peak_min
+              mov       temp,trig_max
+              sub       temp,trig_min
               cmp       temp,#threshold         wc'carry is written if source is larger
               cmp       counting,#0             wz
 if_z_and_nc   mov       start_time,cnt          'above threshold, setup counting
