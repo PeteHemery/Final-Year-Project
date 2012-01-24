@@ -26,11 +26,12 @@ CON
   sample_rate = CLK_FREQ / (1024 * KHz)  'Hz
   time_taken =(((sample_rate / 8) * 512) / 10)   '80MHz/8 then /10 because of rounding errors.
                                                  'time for 512 samples * refresh_num -> in microseconds
-  averaging = 13                '2-power-n samples to compute average with
+  averaging = 10                '2-power-n samples to compute average with
   attenuation = 4               'try 0-4
-  threshold = 20                'for detecting peak amplitude
+  threshold = 60                'for detecting peak amplitude
 
   KHz = 7
+
 
 OBJ
 
@@ -41,6 +42,7 @@ OBJ
 
   vga : "vga_512x384_bitmap"
   pst : "Parallax Serial Terminal"
+  f32 : "Float32"
 '  fft:"fft"
 '  hfft : "heater_fft_hamming"
 
@@ -48,14 +50,12 @@ VAR
 
   long fir_busy, fir_data
   long flag
-  long samples_ptr
   long cycles_count
   long completed_count
 
-  word samples[1024]'filter[512]
-
   long  sync, pixels[tiles32]
   word  colors[tiles], ypos[512]
+'  word  note_table[12] = "A#","B ","C ","C#","D ","D#","E ","F ","F#","G ","G#"
 
 
 PUB start | f, i, p, startTime, endTime, freq, time, running_total
@@ -76,7 +76,7 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total
 '  waitcnt(clkfreq + cnt)
   pst.Clear
   long[@flag] := 0
-  long[@samples_ptr] := @samples
+  F32.start
 
   'implant pointers and launch assembly program into COG
   asm_pixels := @pixels
@@ -128,74 +128,87 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total
       time := (long[@completed_count] * time_taken) / 100
       freq := ((long[@cycles_count] * 1_000_000) / time)
       running_total += freq
-    if (long[@completed_count] == 0 and p <> 0)
-      time := (p * time_taken) / 100
-      pst.str(string("completed_count: "))
+      running_total /= 2
+
+    if (p => 4)
+'      time := (p * time_taken) / 100
+{      pst.str(string("completed_count: "))
       pst.dec(p)
       pst.newline
-      pst.str(string("time: "))
-      pst.dec(time)
-      pst.newline
-      pst.str(string("Freq: "))
-      freq := (running_total / p)
-      pst.dec(freq/100)
+}      pst.str(string("Freq: "))
+      pst.dec(running_total/100)
       pst.char(".")
-      pst.dec(freq//100)
+      pst.dec(running_total//100)
       pst.str(string("Hz",pst#NL))
 
-      running_total := 0
+
+    if (p > 4 and long[@completed_count] == 0)
+      note_worthy(running_total)
     p := long[@completed_count]
 
 '    waitcnt((500 * MS_001) +cnt)
+
+PRI note_worthy(freq) | lnote, oct, cents, offset
+'  lnote := F32.FDiv((F32.FSub(F32.log(F32.FDiv((F32.FFloat(freq)),F32.FFloat(100))),F32.log(440))),F32.FMul(F32.log(2),F32.FFloat(4)))
+  lnote := F32.FDiv(F32.log(F32.FDiv((F32.FFloat(freq)),F32.FFloat(100))),F32.log(440))
+  oct := F32.FFloat(F32.FTrunc(lnote))
+
+  cents := F32.FMul(F32.FFloat(12000),F32.FSub(lnote,oct))
+  offset := 50.0
+      pst.str(string("Note: "))
+      pst.dec(F32.FTrunc(cents))
+      pst.newline
 {
-    repeat while flag == 1
-    endTime := cnt
-    startTime := cnt
-    pst.str(string("Sample 1  Buffer "))    
-    pst.dec((endTime - startTime) / (clkfreq / 1_000_000))
-    pst.str(string("us",pst#NL))
-    pst.dec((startTime))
-    pst.newline
-    pst.dec((endTime))
+function lognote( freq )
+{
+	var oct = ( Math.log ( freq ) - Math.log ( 440 ) )
+			/ Math.log ( 2 ) + 4.0;
 
-    f := long[@frequency] / sample_rate
-    pst.dec(f/100)              ' print whole part
-    pst.char(".")
-    pst.dec(f//100)             ' print fractional part
-    pst.str(string("Hz",pst#NL))
-
-    repeat while flag == 2
-    endTime := cnt
-    startTime := cnt
-    pst.str(string("Sample 2  Buffer "))
-    pst.dec((endTime - startTime) / (clkfreq / 1_000_000))
-    pst.str(string("us",pst#NL))
-    startTime := cnt
+	return oct;
 }
 
+function freq_to_note( form )
+{
+	var freq = form.freq.value;
 
-{    repeat while flag <> @samples
-    flag := 1
-    endTime := cnt
-    pst.str(string("Sampler run time = "))
-    pst.dec((endTime - startTime) / (clkfreq / 1000))
-    pst.str(string("ms"))
-    pst.newline
-    startTime := cnt
-    repeat i from 0 to 1023
-        pst.dec(i)
-        pst.str(string(" "))
-        pst.dec(word[@samples][i])
-        pst.newline
-    endTime := cnt
-    pst.str(string("Printing 1024 samples taken - run time = "))
-    pst.dec((endTime - startTime) / (clkfreq / 1000))
-    pst.str(string("ms"))
-    pst.newline
-    startTime := cnt
+	var lnote = lognote( freq );
+	var oct = Math.floor( lnote );
+	var cents = 1200 * ( lnote - oct );
+
+	var note_table = "A A#B C C#D D#E F F#G G#";
+
+	var offset = 50.0;
+	var x = 2;
+
+	if ( cents < 50 )
+	{
+		note = "A ";
+	}
+	else if ( cents >= 1150 )
+	{
+		note = "A ";
+		cents -= 1200;
+		oct++;
+	}
+	else
+	{
+		for ( j = 1 ; j <= 11 ; j++ )
+		{
+			if ( cents >= offset && cents < (offset + 100 ) )
+			{
+				note = note_table.charAt( x ) + note_table.charAt( x + 1 );
+				cents -= ( j * 100 );
+				break;
+			}
+			offset += 100;
+			x += 2;
+		}
+	}
+	form.cents.value = round ( cents, 2 );
+	form.note.value = note + (oct + "" );
+	return;
 }
-
-
+}
 
 DAT
 
@@ -206,13 +219,8 @@ DAT
               org       0
 
 asm_entry     mov       flag_addr,PAR
-              mov       temp,flag_addr
-              add       temp,#4
-              rdlong    buffer_addr,temp
-              mov       output_pos,buffer_addr
-
               mov       cycles_addr,flag_addr
-              add       cycles_addr,#8
+              add       cycles_addr,#4
               mov       complete_addr,cycles_addr
               add       complete_addr,#4
 
@@ -306,13 +314,6 @@ if_c          mov       completed,#0
 '' End
 
 :justify
-'' Added to export sample
-'              wrword    asm_sample,output_pos
-              add       output_pos,#2
-
-'              wrlong    asm_sample,flag_addr
-'              wrlong    asm_justify,cycles_addr
-'' End
               sub       asm_sample,asm_justify          'justify sample to bitmap center y
               sar       asm_sample,#attenuation         'this # controls attenuation (0=none)
 
@@ -336,13 +337,8 @@ if_c          mov       completed,#0
               and       xpos,#$1FF              wz
 if_nz         jmp       #:loop                          'wait for next sample period
               mov       mode,#0                         'if rollover, reset mode for trigger
-
-              mov       output_pos,buffer_addr
-              cmp       which_half,#0           wz
-if_z          mov       which_half,top_half
-if_nz         mov       which_half,#0
-              add       output_pos,which_half
-
+              rdlong    temp,flag_addr
+              cmp       temp,#2                 wz
 if_z          mov       temp,#1
 if_nz         mov       temp,#2
               wrlong    temp,flag_addr
@@ -415,10 +411,6 @@ begin_time    long      0
 
 'Added to export
 temp          long      0
-which_half    long      0
-top_half      long      1024        '2 bytes per word, half way through the 1024 word array
-output_pos    long      0
-buffer_addr   res       1
 flag_addr     res       1
 cycles_addr   res       1
 complete_addr res       1
