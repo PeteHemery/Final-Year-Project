@@ -130,7 +130,7 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total
       running_total += freq
       running_total /= 2
 
-    if (p => 4)
+    if (p => 2)
 '      time := (p * time_taken) / 100
 {      pst.str(string("completed_count: "))
       pst.dec(p)
@@ -142,21 +142,25 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total
       pst.str(string("Hz",pst#NL))
 
 
-    if (p > 4 and long[@completed_count] == 0)
+    if (p => 2 and long[@completed_count] == 0)
       note_worthy(running_total)
     p := long[@completed_count]
 
 '    waitcnt((500 * MS_001) +cnt)
 
-PRI note_worthy(freq) | lnote, oct, cents, offset
+PRI note_worthy(freq) | lnote, oct, cents, offset, alpha
 '  lnote := F32.FDiv((F32.FSub(F32.log(F32.FDiv((F32.FFloat(freq)),F32.FFloat(100))),F32.log(440))),F32.FMul(F32.log(2),F32.FFloat(4)))
-  lnote := F32.FDiv(F32.log(F32.FDiv((F32.FFloat(freq)),F32.FFloat(100))),F32.log(440))
-  oct := F32.FFloat(F32.FTrunc(lnote))
+'  lnote := F32.FDiv(F32.log(F32.FDiv((F32.FFloat(freq)),F32.FFloat(100))),F32.log(440))
+'  oct := F32.FFloat(F32.FTrunc(lnote))
+'  cents := F32.FMul(F32.FFloat(12000),F32.FSub(lnote,oct))
 
-  cents := F32.FMul(F32.FFloat(12000),F32.FSub(lnote,oct))
+  lnote := F32.log(F32.FDiv(F32.FFloat(freq),F32.FFloat(44000)))
+  cents := F32.FMul(F32.FMul((lnote),F32.FFloat(12)),F32.FFloat(100))
   offset := 50.0
       pst.str(string("Note: "))
-      pst.dec(F32.FTrunc(cents))
+      pst.dec(F32.FRound(cents)/100)
+      pst.newline
+      pst.dec(F32.FRound(cents))'needs work!!
       pst.newline
 {
 function lognote( freq )
