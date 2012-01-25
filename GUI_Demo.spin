@@ -46,16 +46,16 @@ PUB start | i, cents
   show_headings
   show_scale
 
-  repeat
+{  repeat
     repeat cents from -50 to 50
-      update(5,2,cents,440)
+      update(5,"A"," ",cents,44000)
       waitcnt(clkfreq / 10 + cnt)
-
-PUB update(oct,note,cent,freq)
-  show_octave(oct)
-  show_note(note)
-  show_percent(cent)
+}
+PUB update(oct,note1,note2,cent,freq)
   show_cents(cent)
+  show_octave(oct)
+  show_note(note1,note2)
+  show_percent(cent)
   show_frequency(freq)
 
 PRI show_headings
@@ -103,14 +103,16 @@ PRI show_octave(octave)
   vga_text.dec(octave)
   vga_text.out(" ")
 
-PRI show_note(note)
+PRI show_note(note1,note2)
 
   vga_text.out(Y_SELECT)
   vga_text.out(6)
   vga_text.out(X_SELECT)
   vga_text.out(10)
 
-  if note == 0
+  vga_text.out(note1)
+  vga_text.out(note2)
+{  if note == 0
     vga_text.str(string("C "))
   elseif note == 1
     vga_text.str(string("C#"))
@@ -134,7 +136,7 @@ PRI show_note(note)
     vga_text.str(string("Bb"))
   elseif note == 11
     vga_text.str(string("B "))
-
+}
 PRI show_percent(percent)
 
   vga_text.out(Y_SELECT)
@@ -148,16 +150,16 @@ PRI show_frequency(frequency)
   vga_text.out(Y_SELECT)
   vga_text.out(6)
   vga_text.out(X_SELECT)
-  vga_text.out(24)
-
-  vga_text.dec(frequency)
-  vga_text.out(" ")
-  vga_text.out(" ")
-  vga_text.out(" ")
+  vga_text.out(22)
+  vga_text.dec(frequency/100)
+  vga_text.out(".")
+  if (frequency//100) < 10
+    vga_text.out("0")
+  vga_text.dec(frequency//100)
   vga_text.out(" ")
 
   vga_text.out(X_SELECT)
-  vga_text.out(29)
+  vga_text.out(30)
 
   vga_text.str(string("Hz"))
 

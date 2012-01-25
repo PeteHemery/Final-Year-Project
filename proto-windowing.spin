@@ -151,17 +151,18 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on
 
     repeat i from 0 to num_of_ffts - 1
       fft_flag_val[i] := long[@fft_flag][i]
-      if fft_flag_val[i] <> 0 AND fft_flag_val[i] <> fft_flag_prev[i] AND pst_on
-        pst.Str(String(pst#NL,"FFT "))
-        pst.Dec(i+1)
-        pst.Str(String(" flag: "))
-        pst.Dec(fft_flag_val[i])
-        fft_flag_prev[i] := fft_flag_val[i]
+      fft_time_val[i] := long[@fft_time][i]
+      if fft_flag_val[i] <> fft_flag_prev[i]
+        if fft_flag_val[i] <> 0
+          pst.Str(String(pst#NL,"FFT "))
+          pst.Dec(i+1)
+          pst.Str(String(" took: "))
+          pst.Dec((||(fft_time_val[i] - fft_time_prev[i]))/(clkfreq/1000))
+          pst.Str(String("ms"))
 
-        fft_time_val[i] := long[@fft_time][i]
-        pst.Str(String(pst#NL,"took: "))
-        pst.Dec((||(fft_time_val[i] - fft_time_prev[i]))/(clkfreq/1000))
-        pst.Str(String("ms"))
+          pst.Str(String("             flag: "))
+          pst.Dec(fft_flag_val[i])
+        fft_flag_prev[i] := fft_flag_val[i]
         fft_time_prev[i] := fft_time_val[i]
 
 
