@@ -7,27 +7,30 @@ CON
   CLK_FREQ = ((_clkmode-xtal1)>>6)*_xinfreq
   MS_001 = CLK_FREQ / 1_000
 
-' At 80MHz the ADC/DAC sample resolutions and rates are as follows:
-'
-' sample   sample
-' bits       rate
-' ----------------
-' 11       39 KHz
-' 12     19.5 KHz
-' 13     9.77 KHz
-' 14     4.88 KHz
+  averaging = 10                '2-power-n samples to compute average with
+  attenuation = 4               'try 0-4
 
-  bits = 14                     'try different values from table here
-
-  KHz = 6
   sample_rate = CLK_FREQ / (1024 * KHz)  'Hz
 
+  KHz = 6
+  filtering = 1 'on
+
+OBJ
+'  fir : "fir_filter_4k"
+'  fir : "fir_filter_5k"
+  fir : "fir_filter_6k"
+'  fir : "fir_filter_7k"
 
 VAR
   long  cog                                             'Cog flag/id
+  long  fir_busy,fir_data
 
 PUB start (flagptr): okay
 
+  if(filtering == 1)
+    asm_fir_busy := @fir_busy
+    asm_fir_data := @fir_data
+    fir.start(@fir_busy)
   stop
   okay := cog := cognew(@asm_entry, flagptr) + 1 'launch assembly program into a COG
 
@@ -91,6 +94,43 @@ loop          waitcnt   asm_cnt,asm_cycles              'wait for next CNT value
               sub       asm_sample,asm_old
               add       asm_old,asm_sample
 
+''Filtering
+              cmp       filterswitch,#0         wz
+if_z          jmp       #:avejump
+
+              wrlong    asm_sample,asm_fir_data
+              mov       t1,#1
+              wrlong    t1,asm_fir_busy
+
+:fir_loop     rdlong    t1,asm_fir_busy
+              tjnz      t1,#:fir_loop
+              rdword    asm_sample,asm_fir_data
+
+''Averaging
+:avejump      add       average,asm_sample              'compute average periodically so that
+              djnz      average_cnt,#:avgsame           'we can 0-justify samples
+              mov       average_cnt,average_load
+              shr       average,#averaging
+              mov       asm_justify,average
+              mov       average,#0                      'reset average for next averaging
+:avgsame
+
+              max       peak_min,asm_sample             'track min and max peaks for triggering
+              min       peak_max,asm_sample
+              djnz      peak_cnt,#:pksame
+              mov       peak_cnt,peak_load
+              mov       x,peak_max                      'compute min+12.5% and max-12.5%
+              sub       x,peak_min
+              shr       x,#3
+              mov       trig_min,peak_min
+              add       trig_min,x
+              mov       trig_max,peak_max
+              sub       trig_max,x
+              mov       peak_min,bignum                 'reset peak detectors
+              mov       peak_max,#0
+:pksame
+
+''Save data and pick next buffer, if need be
               wrword    asm_sample,in_ptr               'write sample to fft array
               add       in_ptr,#2
               add       array_offset,#1                 'keep count of how far into the array we are
@@ -100,17 +140,20 @@ loop          waitcnt   asm_cnt,asm_cycles              'wait for next CNT value
 
               mov       array_offset,#0                 'reset array offset
               wrlong    zero,fft_ptr                    'trigger fft to go
+
+              mov       t1,cnt
+              wrlong    t1,asm_time_ptr                 'tell caller how long I took
+
               cmp       number_of_ffts,#1       wz      'if there's only one, jump round the loop again
         if_nz jmp       #find_free_buf
+
+              add       one,#1
+              wrlong    one,asm_flag_ptr                'let outside object know buffer in use via the flag
+              mov       in_ptr,asm_buffer1_ptr          'cog cell holding 1st buffer
 
 waiting       rdlong    t1,fft_ptr                      'wait until flag is not 0 before looping again
               cmp       t1,#0                   wz
     if_z      jmp       #waiting
-
-              mov       in_ptr,asm_buffer1_ptr          'cog cell holding 1st buffer
-              add       one,#1
-              wrlong    one,asm_flag_ptr                'let outside object know buffer in use via the flag
-
               jmp       #end_time
 
 '''''''''''''''''
@@ -121,8 +164,7 @@ find_free_buf add       buffer_number,#1                'set the next buffer num
         if_z  mov       buffer_number,#0
 
               mov       in_ptr,#asm_fft1_ptr            'cog cell holding 1st flag address
-              mov       t1,buffer_number
-              add       in_ptr,t1                       'move to relevent cell
+              add       in_ptr,buffer_number            'move to relevent cell
               movs      read_flag,in_ptr                'patch the move instruction below
               nop                                       'wait for above instruction to propagate
 read_flag     mov       fft_ptr,0-0
@@ -138,7 +180,7 @@ read_flag     mov       fft_ptr,0-0
               add       one,#1
               wrlong    one,asm_flag_ptr                'let outside object know how many samples we've taken
 '              wrlong    buffer_number,asm_flag_ptr      'let outside object know buffer in use via the flag
-              nop
+
 get_buf_ptr   mov       in_ptr,0-0                      'reset input to the relevent array
 
 end_time      mov       asm_cnt,cnt
@@ -165,7 +207,12 @@ d0                      long    1 << 9
 
 'asm_cycles    long      |< bits - 1                     'sample time
 asm_cycles    long      sample_rate - 1                 'sample time
-asm_dira                long    $00000200               'output mask
+asm_dira      long      $00000200                       'output mask
+average_cnt   long      1
+peak_cnt      long      1
+peak_load     long      512
+average_load  long      |< averaging
+bignum        long      $FFFFFFFF
 
 number_of_ffts          long    0
 fft_ptr                 long    0               'relevent flag pointer
@@ -183,10 +230,20 @@ asm_buffer2_ptr         long    0
 asm_buffer3_ptr         long    0
 asm_buffer4_ptr         long    0
 
+asm_fir_busy            long    0
+asm_fir_data            long    0
+filterswitch            long    filtering
+
 asm_cnt                 res     1
 asm_old                 res     1
 asm_sample              res     1
-
+trig_min                res     1
+trig_max                res     1
+average                 res     1
+asm_justify             res     1
+peak_min                res     1
+peak_max                res     1
+x                       res     1
 {{
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                                   TERMS OF USE: MIT License                                                  │

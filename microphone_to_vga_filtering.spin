@@ -10,7 +10,8 @@
 ' The microphone is digitized and the samples are displayed on a VGA monitor, just like
 ' an oscilloscope with triggering.
 '
-' This program is sloppy and not ready for prime time. I just wanted to share it now.
+'-----------------------
+'Modified by PH for Final Year Project 2011-2012
 
 CON
 
@@ -30,15 +31,15 @@ CON
   attenuation = 4               'try 0-4
   threshold = 60                'for detecting peak amplitude
 
-  KHz = 7
+  KHz = 6
 
 
 OBJ
 
 '  fir : "fir_filter_4k"
 '  fir : "fir_filter_5k"
-'  fir : "fir_filter_6k"
-  fir : "fir_filter_7k"
+  fir : "fir_filter_6k"
+'  fir : "fir_filter_7k"
 
   vga : "vga_512x384_bitmap"
   pst : "Parallax Serial Terminal"
@@ -55,10 +56,10 @@ VAR
 
   long  sync, pixels[tiles32]
   word  colors[tiles], ypos[512]
-'  word  note_table[12] = "A#","B ","C ","C#","D ","D#","E ","F ","F#","G ","G#"
 
 
-PUB start | f, i, p, startTime, endTime, freq, time, running_total
+
+PUB start | f, i, p, startTime, endTime, freq, time, running_total, freq_average
 
   'start vga
   vga.start(16, @colors, @pixels, @sync)
@@ -127,8 +128,11 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total
     if(long[@completed_count])
       time := (long[@completed_count] * time_taken) / 100
       freq := ((long[@cycles_count] * 1_000_000) / time)
+
+      freq_average += freq
       running_total += freq
-      running_total /= 2
+      if (p <> 0)
+        freq_average /= 2
 
     if (p => 2)
 '      time := (p * time_taken) / 100
@@ -136,32 +140,106 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total
       pst.dec(p)
       pst.newline
 }      pst.str(string("Freq: "))
-      pst.dec(running_total/100)
+      pst.dec(freq_average/100)
       pst.char(".")
-      pst.dec(running_total//100)
+      pst.dec(freq_average//100)
       pst.str(string("Hz",pst#NL))
 
+      if ((p // KHz) == 0)
+        note_worthy(freq_average)
 
     if (p => 2 and long[@completed_count] == 0)
-      note_worthy(running_total)
+      note_worthy(running_total/p)
+      running_total := 0
+      freq_average := 0
     p := long[@completed_count]
 
 '    waitcnt((500 * MS_001) +cnt)
 
-PRI note_worthy(freq) | lnote, oct, cents, offset, alpha
+PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
 '  lnote := F32.FDiv((F32.FSub(F32.log(F32.FDiv((F32.FFloat(freq)),F32.FFloat(100))),F32.log(440))),F32.FMul(F32.log(2),F32.FFloat(4)))
 '  lnote := F32.FDiv(F32.log(F32.FDiv((F32.FFloat(freq)),F32.FFloat(100))),F32.log(440))
 '  oct := F32.FFloat(F32.FTrunc(lnote))
 '  cents := F32.FMul(F32.FFloat(12000),F32.FSub(lnote,oct))
 
-  lnote := F32.log(F32.FDiv(F32.FFloat(freq),F32.FFloat(44000)))
-  cents := F32.FMul(F32.FMul((lnote),F32.FFloat(12)),F32.FFloat(100))
-  offset := 50.0
-      pst.str(string("Note: "))
-      pst.dec(F32.FRound(cents)/100)
-      pst.newline
-      pst.dec(F32.FRound(cents))'needs work!!
-      pst.newline
+  lnote := F32.FAdd(F32.Log(F32.FDiv(F32.FFloat(freq),F32.FFloat(44000))),F32.FFloat(4))
+  oct := F32.FFloat(F32.FTrunc(lnote))
+  cents := F32.FRound(F32.FMul(F32.FSub(lnote,oct),F32.FFloat(1200)))
+
+  offset := 50
+  note := 2
+
+
+  pst.str(string("Octave: "))
+  pst.dec(F32.FTrunc(oct))
+  pst.char(" ")
+  pst.newline
+
+  pst.str(string("Cents: "))
+  pst.dec(cents)
+  pst.char(" ")
+  pst.newline
+
+  pst.str(string("Note: "))
+  note := cents / 100
+  cents //= 100
+  if (cents > 50)
+    note += 1
+    cents -= 100
+  pst.dec(note)
+  pst.char(" ")
+
+  pst.char(note_table[note*2])
+  pst.char(note_table[(note*2)+1])
+
+  pst.newline
+
+  pst.str(string("Cents: "))
+  pst.dec(cents)
+  pst.char(" ")
+  pst.newline
+
+{
+  pst.str(string("Cents: "))
+  pst.dec(cents)
+  pst.char(" ")
+}
+{
+'  j := note - 50
+'  if note <> j
+'    note -= 1
+'    cents -= offset
+
+'  pst.dec(note)
+'  pst.char(" ")
+
+  pst.char(note_table[note])
+  pst.char(note_table[note+1])
+}
+{  if cents < 50
+    note := 0
+  elseif cents => 1150
+    note := 0
+    cents -= 1200
+  else
+    repeat i from 1 to 12
+      if (cents => offset AND cents < (offset + 100))
+        note := j
+'        pst.char(word[note_table][note])
+'        pst.char(word[note_table][note+1])
+        cents -= (i * 100)
+        i := 11
+
+      offset += 100
+      note += 2
+}
+
+'  pst.char(note_table[(note//12)*2])
+'  pst.char(note_table[((note//12)*2)+1])
+
+'  pst.dec(((F32.FTrunc(cents)//100)-50))'needs work!!
+'  pst.newline
+
 {
 function lognote( freq )
 {
@@ -213,6 +291,19 @@ function freq_to_note( form )
 	return;
 }
 }
+DAT
+note_table    byte      "A"," "
+              byte      "A","#"
+              byte      "B"," "
+              byte      "C"," "
+              byte      "C","#"
+              byte      "D"," "
+              byte      "D","#"
+              byte      "E"," "
+              byte      "F"," "
+              byte      "F","#"
+              byte      "G"," "
+              byte      "G","#"
 
 DAT
 

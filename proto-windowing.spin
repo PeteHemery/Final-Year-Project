@@ -13,9 +13,9 @@ CON
   tiles    = vga#xtiles * vga#ytiles
   tiles32  = tiles * 16
 
-  peaks    = 1
-  num_of_ffts = 2
-
+'  peaks    = 1
+  num_of_ffts = 2               'Only enough cogs for 3 FFTs and filtering
+                                'Disable filtering in sampler for a max of 4 FFTs
   TIMEOUT = 60000
 
 VAR
@@ -60,7 +60,7 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on
 
    'init colors to cyan on blue  '$2805
   repeat i from 0 to tiles - 1
-    colors[i] := %%3300_0020    'gold on blue
+    colors[i] := %%3100_0010    'gold on blue
 
   if ina[31] == 1                            'Check if we're connected via USB
     pst_on := 1
@@ -85,7 +85,7 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on
   repeat i from 0 to num_of_ffts - 1
     j := i*fft#NN
     fft_flag_val[i] := fft.start(@fft_flag[i],@fft_time[i],@real_buffer[j],@imag_buffer[j],@pixels)
-    waitcnt(clkfreq + cnt)
+    waitcnt(clkfreq/4 + cnt)
     if pst_on
       pst.Str(String(pst#NL,"j:"))
       pst.Dec(j)
@@ -93,7 +93,7 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on
       pst.Dec(i+1)
       pst.Str(String(" flag after launch: "))
       pst.Dec(fft_flag_val[i])
-      pst.Str(String(pst#NL,"flag val address: "))
+{      pst.Str(String(pst#NL,"flag val address: "))
       pst.Dec(@fft_flag_val[i])
 
       pst.Str(String(pst#NL,"flag address: "))
@@ -104,7 +104,7 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on
       pst.Dec(@real_buffer[j])
       pst.Str(String(pst#NL,"imag_buffer address: "))
       pst.Dec(@imag_buffer[j])
-
+}
       pst.Str(String(pst#NL,"flag value: "))
       pst.Dec(long[@fft_flag][i])
       pst.Str(String(pst#NL,"buffer pointer value: "))
@@ -136,46 +136,33 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on
       longfill(@pixels, $0, tiles32)
     countdown--
 
-    repeat i from 0 to num_of_ffts - 1
-      fft_flag_val[i] := long[@fft_flag][i]
-      if fft_flag_val[i] <> fft_flag_prev[i]
-        if fft_flag_val[i] <> 0
-          if pst_on
-            pst.Str(String(pst#NL,"FFT "))
-            pst.Dec(i+1)
-            pst.Str(String(" flag: "))
-            pst.Dec(fft_flag_val[i])
-
-        fft_flag_prev[i] := fft_flag_val[i]
-
-      fft_time_val[i] := long[@fft_time][i]
-      if fft_time_val[i] <> fft_time_prev[i]
-'        if fft_flag_val[i] <> 0
-          if pst_on
-            pst.Str(String(pst#NL,"FFT "))
-            pst.Dec(i+1)
-            pst.Str(String(" took: "))
-            pst.Dec((||(fft_time_val[i] - fft_time_prev[i]))/(clkfreq/1000))
-            pst.Str(String("ms"))
-        fft_time_prev[i] := fft_time_val[i]
-
-    audio_time_val := long[@aud_time]
-    if audio_time_val <> audio_time_prev
-      if pst_on
-        pst.Str(String(pst#NL,"Audio Cog took: "))
-        pst.Dec((||(audio_time_val - audio_time_prev))/(clkfreq/1000))
-        pst.Str(String("ms"))
+    audio_flag_val := long[@aud_flag]
+    if audio_flag_val <> audio_flag_prev AND pst_on
+      audio_time_val := long[@aud_time]
+      pst.Str(String(pst#NL,"Audio Flag value: "))
+      pst.Dec(audio_flag_val)
+      audio_flag_prev := audio_flag_val
+      pst.Str(String(pst#NL,"Audio Cog took: "))
+      pst.Dec((||(audio_time_val - audio_time_prev))/(clkfreq/1000))
+      pst.Str(String("ms"))
 '        pst.Str(String(pst#NL,"Audio time value: "))
 '        pst.Dec(audio_time_val)
       audio_time_prev := audio_time_val
 
-    audio_flag_val := long[@aud_flag]
-    if audio_flag_val <> audio_flag_prev
-      if pst_on
-        pst.Str(String(pst#NL,"Audio Flag value: "))
-'        pst.Hex(audio_flag_val,8)
-        pst.Dec(audio_flag_val)
-      audio_flag_prev := audio_flag_val
+    repeat i from 0 to num_of_ffts - 1
+      fft_flag_val[i] := long[@fft_flag][i]
+      if fft_flag_val[i] <> 0 AND fft_flag_val[i] <> fft_flag_prev[i] AND pst_on
+        pst.Str(String(pst#NL,"FFT "))
+        pst.Dec(i+1)
+        pst.Str(String(" flag: "))
+        pst.Dec(fft_flag_val[i])
+        fft_flag_prev[i] := fft_flag_val[i]
+
+        fft_time_val[i] := long[@fft_time][i]
+        pst.Str(String(pst#NL,"took: "))
+        pst.Dec((||(fft_time_val[i] - fft_time_prev[i]))/(clkfreq/1000))
+        pst.Str(String("ms"))
+        fft_time_prev[i] := fft_time_val[i]
 
 
 PUB setup_pointers | i
