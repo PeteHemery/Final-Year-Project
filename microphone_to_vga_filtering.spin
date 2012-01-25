@@ -185,7 +185,7 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
   cents //= 100
   if (cents > 50)
     note += 1
-    cents -= 100
+    cents := -100 + cents
   pst.dec(note)
   pst.char(" ")
 

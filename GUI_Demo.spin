@@ -35,37 +35,28 @@ OBJ
   vga_text : "vga_text"
 
 VAR
-  long in_frequency
+  long arrow_pos
 
 PUB start | i, cents
 
   vga_text.start(basepin)
 
-  in_frequency := 440
+  arrow_pos := 5
 
   show_headings
-  show_octave(5)
-  show_note(2)
-  show_percent(-15)
-  show_frequency
-
   show_scale
 
-  vga_text.out(Y_SELECT)
-  vga_text.out(12)
   repeat
     repeat cents from -50 to 50
-      show_cents(cents)
-      waitcnt(clkfreq / 100 + cnt)
-      vga_text.out($8)
-      vga_text.out(" ")
+      update(5,2,cents,440)
+      waitcnt(clkfreq / 10 + cnt)
 
-
-
- 
-  repeat
-    vga_text.str(string(X_SELECT,12,Y_SELECT,14))
-    vga_text.hex(i++, 8)
+PUB update(oct,note,cent,freq)
+  show_octave(oct)
+  show_note(note)
+  show_percent(cent)
+  show_cents(cent)
+  show_frequency(freq)
 
 PRI show_headings
   vga_text.out(COLOUR_SELECT)
@@ -110,6 +101,7 @@ PRI show_octave(octave)
   vga_text.out(X_SELECT)
   vga_text.out(4)
   vga_text.dec(octave)
+  vga_text.out(" ")
 
 PRI show_note(note)
 
@@ -150,14 +142,15 @@ PRI show_percent(percent)
   vga_text.out(X_SELECT)
   vga_text.out(16)
   vga_text.dec(percent)
+  vga_text.out(" ")
 
-PRI show_frequency
+PRI show_frequency(frequency)
   vga_text.out(Y_SELECT)
   vga_text.out(6)
   vga_text.out(X_SELECT)
   vga_text.out(24)
 
-  vga_text.dec(in_frequency)
+  vga_text.dec(frequency)
   vga_text.out(" ")
   vga_text.out(" ")
   vga_text.out(" ")
@@ -196,7 +189,7 @@ PRI show_scale
   repeat 11
     vga_text.str(string("│ "))
 
-PUB refresh_scale(cent)
+PRI refresh_scale(cent)
 
   vga_text.out(COLOUR_SELECT)
   vga_text.out(white)
@@ -211,6 +204,9 @@ PUB refresh_scale(cent)
   vga_text.str(string("┐"))
 
 PRI show_cents(cents) | variable_colour
+  vga_text.out(Y_SELECT)
+  vga_text.out(12)
+
   if cents =< -35
     variable_colour := 1
   elseif cents =< -20
@@ -229,8 +225,12 @@ PRI show_cents(cents) | variable_colour
   vga_text.out(variable_colour)
 
   vga_text.out(X_SELECT)
-  vga_text.out(5 + ((cents + 50) / 5))
+  vga_text.out(arrow_pos)
+  vga_text.out(" ")
 
+  arrow_pos := 5 + ((cents + 50) / 5)
+  vga_text.out(X_SELECT)
+  vga_text.out(arrow_pos)
   vga_text.out("")
 
 {{
