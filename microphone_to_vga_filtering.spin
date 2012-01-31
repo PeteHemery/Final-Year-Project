@@ -29,7 +29,7 @@ CON
                                                  'time for 512 samples * refresh_num -> in microseconds
   averaging = 10                '2-power-n samples to compute average with
   attenuation = 4               'try 0-4
-  threshold = 60                'for detecting peak amplitude
+  threshold = 511               'for detecting peak amplitude
 
   KHz = 6
 

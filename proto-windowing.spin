@@ -14,7 +14,7 @@ CON
   tiles32  = tiles * 16
 
 '  peaks    = 1
-  num_of_ffts = 2               'Only enough cogs for 3 FFTs and filtering
+  num_of_ffts = 3               'Only enough cogs for 3 FFTs and filtering
                                 'Disable filtering in sampler for a max of 4 FFTs
   TIMEOUT = 60000
 

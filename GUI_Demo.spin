@@ -52,11 +52,18 @@ PUB start | i, cents
       waitcnt(clkfreq / 10 + cnt)
 }
 PUB update(oct,note1,note2,cent,freq)
+
+
   show_cents(cent)
+  show_percent(cent)
   show_octave(oct)
   show_note(note1,note2)
-  show_percent(cent)
+
   show_frequency(freq)
+
+  show_headings
+  show_scale
+
 
 PRI show_headings
   vga_text.out(COLOUR_SELECT)
@@ -145,23 +152,26 @@ PRI show_percent(percent)
   vga_text.out(16)
   vga_text.dec(percent)
   vga_text.out(" ")
+  vga_text.out(" ")
 
 PRI show_frequency(frequency)
   vga_text.out(Y_SELECT)
   vga_text.out(6)
   vga_text.out(X_SELECT)
-  vga_text.out(22)
-  vga_text.dec(frequency/100)
-  vga_text.out(".")
-  if (frequency//100) < 10
+  vga_text.out(21)
+  if (frequency/100) > 0
+    vga_text.dec(frequency/100)
+    vga_text.out(".")
+  if (frequency//100) < 10 AND (frequency//100) > 0
     vga_text.out("0")
-  vga_text.dec(frequency//100)
-  vga_text.out(" ")
+  if (frequency//100) > 0
+    vga_text.dec(frequency//100)
+    vga_text.out(" ")
 
-  vga_text.out(X_SELECT)
-  vga_text.out(30)
+    vga_text.out(X_SELECT)
+    vga_text.out(29)
 
-  vga_text.str(string("Hz"))
+    vga_text.str(string("Hz"))
 
 PRI show_scale
 
@@ -191,7 +201,7 @@ PRI show_scale
   repeat 11
     vga_text.str(string("│ "))
 
-PRI refresh_scale(cent)
+{PRI refresh_scale(cent)
 
   vga_text.out(COLOUR_SELECT)
   vga_text.out(white)
@@ -204,7 +214,7 @@ PRI refresh_scale(cent)
   repeat 19
     vga_text.str(string("┬"))
   vga_text.str(string("┐"))
-
+}
 PRI show_cents(cents) | variable_colour
   vga_text.out(Y_SELECT)
   vga_text.out(12)

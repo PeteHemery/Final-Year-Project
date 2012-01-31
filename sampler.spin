@@ -12,8 +12,8 @@ CON
 
   sample_rate = CLK_FREQ / (1024 * KHz)  'Hz
 
-  KHz = 6                       'max 13 with 2 FFTs
-  filtering = 1                 'turn off for different sample rates than provided
+  KHz = 20                       'max 13 with 2 FFTs
+  filtering = 0                 'turn off for different sample rates than provided
 
 OBJ
 '  fir : "fir_filter_4k"
