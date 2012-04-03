@@ -1,14 +1,33 @@
+''*******************************************************
+''*  FFT and Spectrogram Prototype v1.0                 *
+''*  http://propeller.wikispaces.com/FFT                *
+''*  http://forums.parallax.com/showthread.php?p=803389 *
+''*                                                     *
+''*  Converted to Propeller Assembler by Pacito.Sys,    *
+''*  based on int_fft.c by Tom Roberts                  *
+''*  with portability by Malcolm Slaney.                *
+''*  Distributed under the terms of the GNU GPL v2.0.   *
+''*                                                     *
+''*  Integer FFT                                        *
+''*  16 bit signed values are used                      *
+''*                                                     *
+''*  Modified by Pete Hemery - Oct, Nov, Dec 2011       *
+''*                                                     *
+''*  See end of file for terms of use.                  *
+''*******************************************************
+
 CON
 
   _clkmode = xtal1+pll16x
   _xinfreq = 5_000_000
 
-  BITS_NN= 10
+  BITS_NN= 10                   ' 2 ^ BITS_NN. 10 = 1024 bits.
   BITS_NNM1=BITS_NN-1
   NN= |<BITS_NN                 'Nifty bitwise decode
   BITS_DIFF=3
 
 VAR
+' Local object pointer declarations
   long flag_ptr
   long time_ptr
   long real_ptr
@@ -16,7 +35,12 @@ VAR
   long scrn_ptr
 
 PUB start(in_flag_ptr,in_time_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
-
+{{
+ Start - This function populates the local pointers with values passed from the Top Level Object,
+         then launches the PASM FFT object on a cog and passes the first address of the parameter list.
+         The PASM object reads the parameter list into cog RAM on launch and then waits for its flag
+         to change, indicating the input buffer has been filled.
+}}
   flag_ptr := in_flag_ptr
   time_ptr := in_time_ptr
   real_ptr := in_real_ptr
@@ -26,24 +50,24 @@ PUB start(in_flag_ptr,in_time_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
   okay := cognew(@init, @flag_ptr) + 1
 
 PUB stop(cog)
-'' stop fft engine and release the cog
-
+{{
+ This function stops the local FFT engine and releases the cog
+}}                                                   
   if cog
     cogstop(cog~ - 1)
 
-DAT 
-' http://propeller.wikispaces.com/FFT
-
-' Converted to Propeller Assembler by Pacito.Sys, based on int_fft.c by Tom Roberts
-' with portability by Malcolm Slaney.
-' Distributed under the terms of the GNU GPL v2.0.
+DAT
 '
-' Integer FFT
-' 16 bit signed values are used
-
-' Modified by Pete Hemery - Oct, Nov, Dec 2011 
-                        org     0
+' Modified FFT Object. This object can be instantiated multiple times.
+' The initialisation copies parameters passed from Hub RAM by the calling object.
+' These include the Flag pointer, Time Keeping Pointer, Real and Imaginary Buffer Pointers,
+' VGA Pixel Array Pointer and Peak Value Array Pointer.
+'
+' The calling object should allocate consecutive WORD aligned
+' Hub RAM locations for the Real and Imaginary buffers. The size of the buffers should be
+' read from the BITS_NN constant defined at the top of this file.
  
+                        org     0 
 init                    mov     fft_n,#1
                         shl     fft_n,#BITS_NN          '1024 point fft
 
@@ -81,14 +105,16 @@ loop                    call    #decimate
                         wrlong  asm_cnt,asm_time_ptr    'keep track of the time
 
                         jmp     #flag_wait
-{{
+
 'inserted cog stop instead of infinite loop
-                        cogid   cog_id
-                        cogstop cog_id
+                        'cogid   cog_id
+                        'cogstop cog_id
 'end
 
- init_end               jmp     #init_end               ' end
-}}
+'init_end               'jmp     #init_end               ' end
+
+
+
 ' bit-reversal, uses the nice rev instruction
 decimate                mov     fft_ii,#1
                         mov     fft_ll,fft_n
@@ -492,3 +518,31 @@ cog_id                  long    0
 temp                    long    0
 zero                    long    0
 one                     long    0
+
+''=======[ License ]========================================================== 
+{{
+  Demonstration of 1024 point, in-place non-recursive radix-2 FFT using Propeller Assembler.
+  Copyright (C) 2009  Malcolm Slaney
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+ 
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+ 
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+}}
