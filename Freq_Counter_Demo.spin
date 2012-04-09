@@ -22,9 +22,12 @@ CON
   CLK_FREQ = ((_clkmode-xtal1)>>6)*_xinfreq
   MS_001 = CLK_FREQ / 1_000
 
-  sample_rate = CLK_FREQ / (1024 * KHz)  'Hz
-  time_taken =(((sample_rate / 8) * 512) / 10)   '80MHz/8 then /10 because of rounding errors.
+ ' sample_rate = CLK_FREQ / (1024 * KHz)  'Hz
+  sample_rate = MS_001 / 6
+'  time_taken =(((sample_rate / 8) * 512) / 10)   '80MHz/8 then /10 because of rounding errors.
                                                  'time for 512 samples * refresh_num -> in microseconds
+  time_taken = (sample_rate * 512) / 100
+
   averaging = 10                '2-power-n samples to compute average with
   attenuation = 4               'try 0-4
   threshold = $3F                'for detecting peak amplitude
@@ -83,15 +86,42 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total, freq_average
 
       freq_average += freq
       running_total += freq
+
+      pst.str(string("running total: "))
+      pst.dec(running_total)
+      pst.newline
+
+      pst.str(string("time: "))
+      pst.dec(time)
+      pst.newline
+
+      pst.str(string("freq: "))
+      pst.dec(freq)
+      pst.newline
+
+      pst.str(string("MS_001, sample_rate, time_taken: "))
+      pst.dec(MS_001)
+      pst.char(" ")
+      pst.dec(sample_rate)
+      pst.char(" ")
+      pst.dec(time_taken)
+      pst.newline
+
+
+      if running_total > 2_000_000
+        running_total := freq
+        p := 2
+
       if (p <> 0)
         freq_average /= 2
+      else
+        running_total := 0
 
     if (p => 2)
-{      time := (p * time_taken) / 100
+      time := (p * time_taken) / 100
       pst.str(string("completed_count: "))
       pst.dec(p)
       pst.newline
-}
       pst.str(string("Freq: "))
       pst.dec(freq_average/100)
       pst.char(".")
@@ -105,9 +135,9 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total, freq_average
         note_worthy(freq_average)
 
 
-    if (p => 2 and long[@completed_count] == 0)  AND (running_total/p) > 0
-      note_worthy(running_total/p)
-      running_total := 0
+    if (p => 2 and long[@completed_count] == 0) ' AND (running_total/p) > 0
+'      note_worthy(running_total/p)
+'      running_total := 0
     p := long[@completed_count]
 
     
