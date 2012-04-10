@@ -23,14 +23,16 @@ CON
   MS_001 = CLK_FREQ / 1_000
 
  ' sample_rate = CLK_FREQ / (1024 * KHz)  'Hz
-  sample_rate = MS_001 / 6
+  sample_rate = MS_001 / KHz
 '  time_taken =(((sample_rate / 8) * 512) / 10)   '80MHz/8 then /10 because of rounding errors.
                                                  'time for 512 samples * refresh_num -> in microseconds
-  time_taken = (sample_rate * 512) / 100
+  time_taken = (sample_rate * 512) / 1_000
+
+
 
   averaging = 10                '2-power-n samples to compute average with
   attenuation = 4               'try 0-4
-  threshold = $3F                'for detecting peak amplitude
+  threshold = $2F                'for detecting peak amplitude
 
   KHz = 6
 
@@ -51,6 +53,7 @@ VAR
   long flag
   long cycles_count
   long completed_count
+  long sampler_clock
 
 
 PUB start | f, i, p, startTime, endTime, freq, time, running_total, freq_average
@@ -80,35 +83,33 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total, freq_average
   repeat
     repeat while long[@flag] == f
     f := long[@flag]
-    if(long[@completed_count])
-      time := (long[@completed_count] * time_taken) / 100
-      freq := ((long[@cycles_count] * 1_000_000) / time)
-
-      freq_average += freq
-      running_total += freq
-
-      pst.str(string("running total: "))
-      pst.dec(running_total)
-      pst.newline
+    if(time := long[@completed_count])
 
       pst.str(string("time: "))
       pst.dec(time)
       pst.newline
 
+      time := (time * time_taken) / 1_000
+      pst.str(string("time: "))
+      pst.dec(time)
+      pst.newline
+
+      freq := long[@cycles_count] / long[@completed_count]
       pst.str(string("freq: "))
       pst.dec(freq)
       pst.newline
 
-      pst.str(string("MS_001, sample_rate, time_taken: "))
-      pst.dec(MS_001)
-      pst.char(" ")
-      pst.dec(sample_rate)
-      pst.char(" ")
-      pst.dec(time_taken)
+
+      freq := freq / time
+
+      freq_average += freq
+
+      pst.str(string("freq: "))
+      pst.dec(freq)
       pst.newline
 
 
-      if running_total > 2_000_000
+      if running_total > 1_000_000
         running_total := freq
         p := 2
 
@@ -131,13 +132,9 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total, freq_average
       if freq_average < 0
         freq_average := 0
 
-      if ((p // KHz) == 0)
+      if ((p // KHz) == 0) AND freq > 0
         note_worthy(freq_average)
 
-
-    if (p => 2 and long[@completed_count] == 0) ' AND (running_total/p) > 0
-'      note_worthy(running_total/p)
-'      running_total := 0
     p := long[@completed_count]
 
     
@@ -274,6 +271,8 @@ asm_entry     mov       flag_addr,PAR
               add       cycles_addr,#4
               mov       complete_addr,cycles_addr
               add       complete_addr,#4
+              mov       clock_addr,complete_addr
+              add       clock_addr,#4
 
               mov       asm_fir_busy,flag_addr
               sub       asm_fir_busy,#8
@@ -330,6 +329,8 @@ asm_entry     mov       flag_addr,PAR
               mov       peak_max,#0
 :pksame
 
+
+:triggers
               cmp       mode,#0                 wz      'wait for negative trigger threshold
 if_z          cmp       asm_sample,trig_min     wc
 if_z_and_c    mov       mode,#1
@@ -341,7 +342,7 @@ if_z_and_nc   mov       mode,#2
 if_z          jmp       #:loop
 
 '' Check number of 0 crossings
-              cmps      asm_justify,asm_sample  wc'carry is written if source is larger
+{              cmps      average,asm_sample      wc  'carry is written if source is larger
 if_nc         jmp       #:less
               mov       prev_cross,#1           ' Sample is more than 0
               jmp       #:justify               ' Don't count it
@@ -352,16 +353,24 @@ if_c          jmp       #:justify               'Last crossing was also below 0
 
 '              mov       temp,peak_max
 '              sub       temp,peak_min
+}
               mov       temp,trig_max
               sub       temp,trig_min
-              cmp       temp,#threshold         wc'carry is written if source is larger
-              cmp       counting,#0             wz
-if_z_and_nc   mov       start_time,cnt          'above threshold, setup counting
-if_z_and_nc   mov       counting,#1
-if_nz_and_nc  add       cycles_cnt,#1           'if we're counting already, keep counting
+              cmp       temp,asm_threshold         wc'carry is written if source is larger
+
 if_c          mov       counting,#0             'under threshold, let the end know
 if_c          mov       completed,#0
-'' End
+if_c          mov       cycles_cnt,#0
+
+if_c          jmp       #:triggers
+
+              cmp       counting,#0             wz
+
+if_nz_and_nc  add       cycles_cnt,#1           'if we're counting already, keep counting
+
+if_z          mov       start_time,cnt          'above threshold, setup counting
+if_z          mov       counting,#1
+
 
 :justify
               sub       asm_sample,asm_justify          'justify sample to bitmap center y
@@ -394,6 +403,7 @@ if_nz         jmp       #:write_totals
               add       completed,#1
 :write_totals
               wrlong    cycles_total,cycles_addr
+'              wrlong    cycles_cnt,cycles_addr
               wrlong    completed,complete_addr
               mov       cycles_cnt,#0
 
@@ -431,6 +441,7 @@ peak_load     long      512
 mode          long      0
 bignum        long      $FFFFFFFF
 average_load  long      |< averaging
+asm_threshold long      threshold
 
 minus_one     long      -1
 prev_cross    long      0
@@ -448,6 +459,7 @@ temp          long      0
 flag_addr     res       1
 cycles_addr   res       1
 complete_addr res       1
+clock_addr    res       1
 
 'Filter
 asm_fir_busy  res       1
