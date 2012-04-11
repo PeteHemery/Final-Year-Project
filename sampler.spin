@@ -27,8 +27,8 @@ CON
   averaging =13                '2-power-n samples to compute average with
   attenuation = 4               'try 0-4
 
-  KHz = 4                       'max 13 with 2 FFTs (for which filtering must be off)
-  filtering = 0                 'turn off for different sample rates than provided
+  KHz = 6                       'max 13 with 2 FFTs (for which filtering must be off)
+  filtering = 1                 'turn off for different sample rates than provided
 
 OBJ
 '' Uncomment relevant object for Finite Impulse Response Low-Pass filtering with 1.5 KHz cut off
