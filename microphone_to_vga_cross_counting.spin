@@ -25,41 +25,32 @@ CON
   MS_001 = CLK_FREQ / 1_000
 
   sample_rate = CLK_FREQ / (1000 * KHz)  'Hz
-  time_taken =(((sample_rate / 8) * 512) / 10)   '80MHz/8 then /10 because of rounding errors.
-                                                 'time for 512 samples * refresh_num -> in microseconds
-  averaging = 13                '2-power-n samples to compute average with
-  attenuation = 2               'try 0-4
-  threshold = $1f               'for detecting peak amplitude
 
-  KHz = 40
+  averaging = 10                '2-power-n samples to compute average with
+  attenuation = 1               'try 0-4
+  threshold = $2f               'for detecting peak amplitude
+
+  KHz = 50
 
 
 OBJ
 
-'  fir : "fir_filter_4k"
-'  fir : "fir_filter_5k"
-  fir : "fir_filter_6k"
-'  fir : "fir_filter_7k"
 
   vga : "vga_512x384_bitmap"
   pst : "Parallax Serial Terminal"
   f32 : "Float32"
-'  fft:"fft"
-'  hfft : "heater_fft_hamming"
 
 VAR
 
-  long fir_busy, fir_data
   long flag
-  long cycles_count
-  long completed_count
+  long sample_count[10] '10 sets of how many samples counted per zero-crossing
 
   long  sync, pixels[tiles32]
   word  colors[tiles], ypos[512]
 
 
 
-PUB start | f, i, p, startTime, endTime, freq, time, running_total, freq_average
+PUB start | f, i, freq, time, samples
 
   'start vga
   vga.start(16, @colors, @pixels, @sync)
@@ -71,104 +62,81 @@ PUB start | f, i, p, startTime, endTime, freq, time, running_total, freq_average
   'fill top line so that it gets erased by COG
   longfill(@pixels, $FFFFFFFF, vga#xtiles)
 
-  fir.start(@fir_busy)
 
   pst.start(115200)
 '  waitcnt(clkfreq + cnt)
   pst.Clear
   long[@flag] := 0
+  f := 0
   F32.start
 
   'implant pointers and launch assembly program into COG
   asm_pixels := @pixels
   asm_ypos := @ypos
+
   cognew(@asm_entry, @flag)
 
-  pst.str(string("Time Taken: "))
-  pst.dec(time_taken)
+  pst.str(string("Sample Rate: "))
+  pst.dec(sample_rate)
   pst.newline
 
 
-  repeat
-{      pst.str(string("Flag: "))
-      pst.dec(long[@flag])              ' print whole part
-      pst.newline
-      pst.str(string("cycle_count: "))
-      pst.dec(long[@cycles_count])
-      pst.newline
-      pst.str(string("completed_count: "))
-      pst.dec(long[@completed_count])
-      pst.newline
-}
+  time := F32.FDiv(F32.FFloat(1),F32.FDiv(F32.FFloat(CLK_FREQ),F32.FFloat(sample_rate)))
+  time := F32.FMul(time,F32.FFloat(1000))               'to ms
+  pst.str(string("Time Taken: "))
+  pst.dec(F32.FRound(time))
+  pst.str(string("."))
+  pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(10)))//10)
+  pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(100)))//10)
+  pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(1000)))//10)
+  pst.str(string(" ms",pst#NL))
+  time := F32.FDiv(time,F32.FFloat(1000))               'to secs for Hz conversion
 
+  repeat
     repeat while long[@flag] == f
     f := long[@flag]
-{    if (long[@completed_count] => 2)
-      pst.newline
-      time := (long[@completed_count] * time_taken) / 100
-      pst.dec(time)
-      pst.newline
-      freq := ((long[@cycles_count] * 1_000_000) / time)
-      running_total += freq
-      pst.newline
-      pst.str(string("Freq: "))
-      pst.dec(freq)              ' print whole part
-      pst.newline
-      pst.dec(freq/100)              ' print whole part
-      pst.char(".")
-      pst.dec(freq//100)             ' print fractional part
-      pst.str(string("Hz",pst#NL))
 
-      pst.str(string("cycle_count: "))
-      pst.dec(long[@cycles_count])
+    samples := sample_count[0]
+{
+    time := 0
+    repeat i from 0 to 9        'average last 10 values of sample_count
+      time += sample_count[i]
+      pst.str(string("sample count:"))
+      pst.dec(sample_count[i])
       pst.newline
-      pst.str(string("completed_count: "))
-      pst.dec(long[@completed_count])
-      pst.newline}
-    if(long[@completed_count])
-      time := (long[@completed_count] * time_taken) / 100
-      freq := ((long[@cycles_count] * 1_000_000) / time)
+    time /= 10
 
-      freq_average += freq
-      running_total += freq
-      if (p <> 0)
-        freq_average /= 2
+    pst.str(string("Averaged number of samples: "))
+}
+    pst.str(string("Number of samples: "))
+    pst.dec(samples)
+    pst.newline
 
-    if (p => 2)
-'      time := (p * time_taken) / 100
-{      pst.str(string("completed_count: "))
-      pst.dec(p)
-      pst.newline
-}      pst.str(string("Freq: "))
-      pst.dec(freq_average/100)
-      pst.char(".")
-      pst.dec(freq_average//100)
-      pst.str(string("Hz",pst#NL))
+    freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FFloat(samples) , time ) )
 
-      if ((p // KHz) == 0)
-        note_worthy(freq_average)
+    pst.str(string("Frequency: "))
+    pst.dec(F32.FRound(freq))
+    pst.str(string("."))
+    pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(10)))//10)
+    pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//10)
+    pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(1000)))//10)
+    pst.str(string(" Hz",pst#NL))
 
-    if (p => 2 and long[@completed_count] == 0)
-      note_worthy(running_total/p)
-      running_total := 0
-      freq_average := 0
-    p := long[@completed_count]
+'    note_worthy(freq)
 
-'    waitcnt((500 * MS_001) +cnt)
 
 PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
-'  lnote := F32.FDiv((F32.FSub(F32.log(F32.FDiv((F32.FFloat(freq)),F32.FFloat(100))),F32.log(440))),F32.FMul(F32.log(2),F32.FFloat(4)))
-'  lnote := F32.FDiv(F32.log(F32.FDiv((F32.FFloat(freq)),F32.FFloat(100))),F32.log(440))
-'  oct := F32.FFloat(F32.FTrunc(lnote))
-'  cents := F32.FMul(F32.FFloat(12000),F32.FSub(lnote,oct))
 
-  lnote := F32.FAdd(F32.FDiv(F32.Log(F32.FDiv(F32.FFloat(freq),F32.FFloat(44000))),F32.Log(2)),F32.FFloat(4))
+  lnote := F32.FAdd(F32.FDiv(F32.Log(F32.FDiv(freq,F32.FFloat(440))),F32.Log(2)),F32.FFloat(4))
   oct := F32.FFloat(F32.FTrunc(lnote))
   cents := F32.FRound(F32.FMul(F32.FSub(lnote,oct),F32.FFloat(1200)))
 
-  offset := 50
-  note := 2
 
+  pst.str(string("Freq: "))
+  pst.dec(F32.FTrunc(freq))
+  pst.char(".")
+  pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//100)
+  pst.str(string("Hz",pst#NL))
 
   pst.str(string("Octave: "))
   pst.dec(F32.FTrunc(oct))
@@ -222,15 +190,8 @@ DAT
               org       0
 
 asm_entry     mov       flag_addr,PAR
-              mov       cycles_addr,flag_addr
-              add       cycles_addr,#4
-              mov       complete_addr,cycles_addr
-              add       complete_addr,#4
-
-              mov       asm_fir_busy,flag_addr
-              sub       asm_fir_busy,#8
-              mov       asm_fir_data,flag_addr
-              sub       asm_fir_data,#4
+              mov       sample_count_addr,flag_addr
+              add       sample_count_addr,#4
 
               mov       dira,asm_dira                   'make pin 8 (ADC) output
 
@@ -247,19 +208,10 @@ asm_entry     mov       flag_addr,PAR
               
 :loop         waitcnt   asm_cnt,asm_cycles              'wait for next CNT value (timing is determinant after WAITCNT)
 
-              mov       asm_sample,phsa                 'capture PHSA and get difference
+              mov       asm_sample,phsa                 'capture PHSA and get differenc
               sub       asm_sample,asm_old
               add       asm_old,asm_sample
 
-''Filtering
-              wrlong    asm_sample,asm_fir_data
-              mov       temp,#1
-              wrlong    temp,asm_fir_busy
-
-:fir_loop     rdlong    temp,asm_fir_busy
-              tjnz      temp,#:fir_loop
-              rdword    asm_sample,asm_fir_data
-''
               add       average,asm_sample              'compute average periodically so that
               djnz      average_cnt,#:avgsame           'we can 0-justify samples
               mov       average_cnt,average_load
@@ -270,6 +222,21 @@ asm_entry     mov       flag_addr,PAR
 
               max       peak_min,asm_sample             'track min and max peaks for triggering
               min       peak_max,asm_sample
+
+'if samples are above the defined threshold, keep counting
+
+              mov       x,peak_max                      'check if trigger points are greater than threshold
+              sub       x,peak_min
+              cmp       x,#threshold            wc      'carry is written if dest is less than source
+              cmp       counting,#0             wz
+if_nz         add       samples_cnt,#1                  'keep track of number of samples taken
+
+if_z_and_nc   mov       counting,#1                     'above threshold, setup counting
+
+if_nz_and_c   jmpret    resetretaddr,#reset_counting    'if counting = 1 and samples are below threshold, reset
+
+
+
               djnz      peak_cnt,#:pksame
               mov       peak_cnt,peak_load
               mov       x,peak_max                      'compute min+12.5% and max-12.5%
@@ -283,38 +250,22 @@ asm_entry     mov       flag_addr,PAR
               mov       peak_max,#0
 :pksame
 
+
+
+'Check for zero crossing
               cmp       mode,#0                 wz      'wait for negative trigger threshold
-if_z          cmp       asm_sample,trig_min     wc
+if_z          cmp       asm_sample,trig_min     wc      'carry is set if dest is less than src
 if_z_and_c    mov       mode,#1
+if_z          cmp       counting,#1             wz
+if_z_and_c    jmpret    countretaddr,#counting_crossings
 if_z          jmp       #:loop
 
               cmp       mode,#1                 wz      'wait for positive trigger threshold
 if_z          cmp       asm_sample,trig_max     wc
 if_z_and_nc   mov       mode,#2
+if_z          cmp       counting,#1             wz
+if_z_and_nc   jmpret    countretaddr,#counting_crossings
 if_z          jmp       #:loop
-
-'' Check number of 0 crossings
-              cmps      asm_justify,asm_sample  wc'carry is written if source is larger
-if_nc         jmp       #:less
-              mov       prev_cross,#1           ' Sample is more than 0
-              jmp       #:justify               ' Don't count it
-' Sample is less than 0
-:less         cmps      prev_cross,#0           wc
-if_c          jmp       #:justify               'Last crossing was also below 0
-              mov       prev_cross,minus_one
-
-'              mov       temp,peak_max
-'              sub       temp,peak_min
-              mov       temp,trig_max
-              sub       temp,trig_min
-              cmp       temp,#threshold         wc'carry is written if source is larger
-              cmp       counting,#0             wz
-if_z_and_nc   mov       start_time,cnt          'above threshold, setup counting
-if_z_and_nc   mov       counting,#1
-if_nz_and_nc  add       cycles_cnt,#1           'if we're counting already, keep counting
-if_c          mov       counting,#0             'under threshold, let the end know
-if_c          mov       completed,#0
-'' End
 
 :justify
               sub       asm_sample,asm_justify          'justify sample to bitmap center y
@@ -325,8 +276,8 @@ if_c          mov       completed,#0
               maxs      asm_sample,#384 - 1
 
               mov       x,xpos                          'xor old pixel off
-              shl       x,#1
-              add       x,asm_ypos
+              shl       x,#1                            'word aligned offset into array
+              add       x,asm_ypos                      'add array address
               rdword    y,x                             'get old pixel-y
               wrword    asm_sample,x                    'save new pixel-y
               mov       x,xpos
@@ -340,34 +291,7 @@ if_c          mov       completed,#0
               and       xpos,#$1FF              wz
 if_nz         jmp       #:loop                          'wait for next sample period
               mov       mode,#0                         'if rollover, reset mode for trigger
-              rdlong    temp,flag_addr
-              cmp       temp,#2                 wz
-if_z          mov       temp,#1
-if_nz         mov       temp,#2
-              wrlong    temp,flag_addr
 
-
-              cmp       counting,#0             wz
-if_z          mov       cycles_total,#0
-if_z          mov       completed,#0
-if_z          jmp       #:write_totals
-              cmp       completed,#0            wz
-if_nz         jmp       #:save_totals
-              cmp       start_time,begin_time   wz
-if_nz         mov       cycles_total,#0
-if_nz         mov       completed,#0
-if_nz         jmp       #:write_totals
-
-:save_totals
-              add       cycles_total,cycles_cnt
-              add       completed,#1
-:write_totals
-              wrlong    cycles_total,cycles_addr
-              wrlong    completed,complete_addr
-              mov       cycles_cnt,#0
-
-              mov       begin_time,cnt
-              mov       start_time,begin_time
               jmp       #:loop                          'wait for next sample period
 '
 '
@@ -384,12 +308,49 @@ plot          mov       asm_mask,#1                     'compute pixel mask
               xor       asm_data,asm_mask
               wrlong    asm_data,y
 
-plot_ret      ret                            
+plot_ret      ret
+
+'
+'
+' Count number of zero crossings
+'
+counting_crossings
+              mov       samples_total,samples_cnt
+              mov       samples_cnt,#0
+
+              wrlong    samples_total, sample_count_addr
+
+{
+if_z_and_nc   mov       counting,#1                     'above threshold, setup counting
+if_c          mov       counting,#0                     'under threshold, clear the flags
+if_c          mov       completed,#0
+
+'this bit is where the adding and shift should go
+'if_nz_and_nc  add       cycles_cnt,#1                  'if we're counting already, keep counting
+}
+              rdlong    temp,flag_addr
+              cmp       temp,#2                 wz
+if_z          mov       temp,#1
+if_nz         mov       temp,#2
+              wrlong    temp,flag_addr
+
+              mov       temp,#0                 wz      'make sure zero flag is set upon return
+counting_ret  jmp       countretaddr
+
+reset_counting
+              mov       counting,#0                     'under threshold, clear flag
+              mov       last_ten_index,#0
+              mov       last_hun_index,#0
+              mov       last_thou_index,#0
+              mov       samples_cnt,#0
+              mov       samples_total,#0
+
+reset_ret     jmp       resetretaddr
 '
 '
 ' Data
 '
-'asm_cycles    long      |< bits - 1                     'sample time
+'asm_cycles    long      |< bits - 1                    'sample time
 asm_cycles    long      sample_rate - 1                 'sample time
 asm_dira      long      $00000200                       'output mask
 asm_pixels    long      0                               'pixel base (set at runtime)
@@ -401,27 +362,37 @@ mode          long      0
 bignum        long      $FFFFFFFF
 average_load  long      |< averaging
 
-minus_one     long      -1
-prev_cross    long      0
 
-cycles_cnt    long      0
-cycles_total  long      0
+'Counting Specific Data
+'Flags
 completed     long      0
 counting      long      0
-start_time    long      0
-begin_time    long      0
 
 
 'Added to export
-temp          long      0
 flag_addr     res       1
-cycles_addr   res       1
-complete_addr res       1
+sample_count_addr   res       1
 
-'Filter
-asm_fir_busy  res       1
-asm_fir_data  res       1
+samples_cnt   res       1
+samples_total res       1
 
+
+
+'Totals of samples counted
+last_ten      res       10
+last_hundred  res       10
+last_thousand res       10
+'Indices
+last_ten_index res      1
+last_hun_index res      1
+last_thou_index res      1
+
+'Useful others
+temp          res       1
+countretaddr  res       1
+resetretaddr  res       1
+
+'demo originals
 asm_justify   res       1
 trig_min      res       1
 trig_max      res       1
