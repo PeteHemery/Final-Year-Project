@@ -29,9 +29,9 @@ CON
                                                  'time for 512 samples * refresh_num -> in microseconds
   averaging = 13                '2-power-n samples to compute average with
   attenuation = 2               'try 0-4
-  threshold = $f               'for detecting peak amplitude
+  threshold = $1f               'for detecting peak amplitude
 
-  KHz = 70
+  KHz = 40
 
 
 OBJ
@@ -162,7 +162,7 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
 '  oct := F32.FFloat(F32.FTrunc(lnote))
 '  cents := F32.FMul(F32.FFloat(12000),F32.FSub(lnote,oct))
 
-  lnote := F32.FAdd(F32.Log(F32.FDiv(F32.FFloat(freq),F32.FFloat(44000))),F32.FFloat(4))
+  lnote := F32.FAdd(F32.FDiv(F32.Log(F32.FDiv(F32.FFloat(freq),F32.FFloat(44000))),F32.Log(2)),F32.FFloat(4))
   oct := F32.FFloat(F32.FTrunc(lnote))
   cents := F32.FRound(F32.FMul(F32.FSub(lnote,oct),F32.FFloat(1200)))
 
@@ -199,98 +199,6 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
   pst.char(" ")
   pst.newline
 
-{
-  pst.str(string("Cents: "))
-  pst.dec(cents)
-  pst.char(" ")
-}
-{
-'  j := note - 50
-'  if note <> j
-'    note -= 1
-'    cents -= offset
-
-'  pst.dec(note)
-'  pst.char(" ")
-
-  pst.char(note_table[note])
-  pst.char(note_table[note+1])
-}
-{  if cents < 50
-    note := 0
-  elseif cents => 1150
-    note := 0
-    cents -= 1200
-  else
-    repeat i from 1 to 12
-      if (cents => offset AND cents < (offset + 100))
-        note := j
-'        pst.char(word[note_table][note])
-'        pst.char(word[note_table][note+1])
-        cents -= (i * 100)
-        i := 11
-
-      offset += 100
-      note += 2
-}
-
-'  pst.char(note_table[(note//12)*2])
-'  pst.char(note_table[((note//12)*2)+1])
-
-'  pst.dec(((F32.FTrunc(cents)//100)-50))'needs work!!
-'  pst.newline
-
-{
-function lognote( freq )
-{
-        var oct = ( Math.log ( freq ) - Math.log ( 440 ) )
-                        / Math.log ( 2 ) + 4.0;
-
-        return oct;
-}
-
-function freq_to_note( form )
-{
-        var freq = form.freq.value;
-
-        var lnote = lognote( freq );
-        var oct = Math.floor( lnote );
-        var cents = 1200 * ( lnote - oct );
-
-        var note_table = "A A#B C C#D D#E F F#G G#";
-
-        var offset = 50.0;
-        var x = 2;
-
-        if ( cents < 50 )
-        {
-                note = "A ";
-        }
-        else if ( cents >= 1150 )
-        {
-                note = "A ";
-                cents -= 1200;
-                oct++;
-        }
-        else
-        {
-                for ( j = 1 ; j <= 11 ; j++ )
-                {
-                        if ( cents >= offset && cents < (offset + 100 ) )
-                        {
-                                note = note_table.charAt( x ) + note_table.charAt( x + 1 );
-                                cents -= ( j * 100 );
-                                break;
-                        }
-                        offset += 100;
-                        x += 2;
-                }
-        }
-        form.cents.value = round ( cents, 2 );
-        form.note.value = note + (oct + "" );
-        return;
-}
-}
 DAT
 note_table    byte      "A"," "
               byte      "A","#"
