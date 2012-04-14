@@ -28,7 +28,7 @@ CON
 
   averaging = 10                '2-power-n samples to compute average with
   attenuation = 1               'try 0-4
-  threshold = $2f               'for detecting peak amplitude
+  threshold = $1f               'for detecting peak amplitude
 
   KHz = 50
 
@@ -201,6 +201,13 @@ asm_entry     mov       flag_addr,PAR
               mov       frqa,#1
 
               mov       xpos,#0
+
+'setup index pointers
+              mov       last_ten_index,#0
+              mov       last_hun_index,#0
+              mov       last_thou_index,#0
+
+              mov       counting,#0
               
               mov       asm_cnt,cnt                     'prepare for WAITCNT loop
               add       asm_cnt,asm_cycles
@@ -222,21 +229,6 @@ asm_entry     mov       flag_addr,PAR
 
               max       peak_min,asm_sample             'track min and max peaks for triggering
               min       peak_max,asm_sample
-
-'if samples are above the defined threshold, keep counting
-
-              mov       x,peak_max                      'check if trigger points are greater than threshold
-              sub       x,peak_min
-              cmp       x,#threshold            wc      'carry is written if dest is less than source
-              cmp       counting,#0             wz
-if_nz         add       samples_cnt,#1                  'keep track of number of samples taken
-
-if_z_and_nc   mov       counting,#1                     'above threshold, setup counting
-
-if_nz_and_c   jmpret    resetretaddr,#reset_counting    'if counting = 1 and samples are below threshold, reset
-
-
-
               djnz      peak_cnt,#:pksame
               mov       peak_cnt,peak_load
               mov       x,peak_max                      'compute min+12.5% and max-12.5%
@@ -251,30 +243,57 @@ if_nz_and_c   jmpret    resetretaddr,#reset_counting    'if counting = 1 and sam
 :pksame
 
 
+'Look for zero crossings
+              cmp       counting,#0             wz
+if_z          jmp       #:threshold_test
 
-'Check for zero crossing
-              cmp       mode,#0                 wz      'wait for negative trigger threshold
+              add       samples_cnt,#1                  'keep track of number of samples taken
+
+              cmp       square_wave,#0          wz      'wait for negative trigger threshold
 if_z          cmp       asm_sample,trig_min     wc      'carry is set if dest is less than src
+if_z_and_c    mov       square_wave,#1
+if_z_and_c    jmpret    countretaddr,#count_crossings
+if_z          jmp       #:threshold_test
+
+              cmp       square_wave,#1          wz      'wait for positive trigger threshold
+if_z          cmp       asm_sample,trig_max     wc
+if_z_and_nc   mov       square_wave,#0
+if_z_and_nc   jmpret    countretaddr,#count_crossings
+
+
+:threshold_test
+'if sample amplitudes are above the defined threshold,
+' start counting number of samples between 0 crossings
+              mov       x,trig_max                      'check if trigger values are greater than threshold
+              sub       x,trig_min
+              cmp       x,#threshold            wc      'carry is written if dest is less than source
+              cmp       counting,#0             wz
+
+if_c          mov       counting,#0                     'under threshold, clear flag/stop counting
+if_nc         mov       counting,#1                     'above threshold, start counting
+
+if_nz_and_c   jmpret    resetretaddr,#reset_counting    'if counting was 1 and samples are below threshold, reset variables
+
+
+'Set triggers
+              cmp       mode,#0                 wz      'wait for negative trigger threshold
+if_z          cmp       asm_sample,trig_min     wc
 if_z_and_c    mov       mode,#1
-if_z          cmp       counting,#1             wz
-if_z_and_c    jmpret    countretaddr,#counting_crossings
 if_z          jmp       #:loop
 
               cmp       mode,#1                 wz      'wait for positive trigger threshold
 if_z          cmp       asm_sample,trig_max     wc
 if_z_and_nc   mov       mode,#2
-if_z          cmp       counting,#1             wz
-if_z_and_nc   jmpret    countretaddr,#counting_crossings
 if_z          jmp       #:loop
 
 :justify
               sub       asm_sample,asm_justify          'justify sample to bitmap center y
               sar       asm_sample,#attenuation         'this # controls attenuation (0=none)
-
               add       asm_sample,#384 / 2
               mins      asm_sample,#0
               maxs      asm_sample,#384 - 1
 
+:out_with_the_old
               mov       x,xpos                          'xor old pixel off
               shl       x,#1                            'word aligned offset into array
               add       x,asm_ypos                      'add array address
@@ -283,14 +302,14 @@ if_z          jmp       #:loop
               mov       x,xpos
               call      #plot
 
+:in_with_the_new
               mov       x,xpos                          'xor new pixel on
               mov       y,asm_sample
               call      #plot
 
               add       xpos,#1                         'increment x position and mask
               and       xpos,#$1FF              wz
-if_nz         jmp       #:loop                          'wait for next sample period
-              mov       mode,#0                         'if rollover, reset mode for trigger
+if_z          mov       mode,#0                         'if rollover, reset mode for trigger
 
               jmp       #:loop                          'wait for next sample period
 '
@@ -314,20 +333,19 @@ plot_ret      ret
 '
 ' Count number of zero crossings
 '
-counting_crossings
+count_crossings
+              cmp       samples_cnt,#0          wz
+if_z          jmp       countretaddr
+
               mov       samples_total,samples_cnt
               mov       samples_cnt,#0
 
               wrlong    samples_total, sample_count_addr
 
-{
-if_z_and_nc   mov       counting,#1                     'above threshold, setup counting
-if_c          mov       counting,#0                     'under threshold, clear the flags
-if_c          mov       completed,#0
 
+'              mov       last_ten + last_ten_index,samples_total
 'this bit is where the adding and shift should go
-'if_nz_and_nc  add       cycles_cnt,#1                  'if we're counting already, keep counting
-}
+
               rdlong    temp,flag_addr
               cmp       temp,#2                 wz
 if_z          mov       temp,#1
@@ -335,17 +353,18 @@ if_nz         mov       temp,#2
               wrlong    temp,flag_addr
 
               mov       temp,#0                 wz      'make sure zero flag is set upon return
-counting_ret  jmp       countretaddr
+count_crossings_ret jmp countretaddr
 
 reset_counting
-              mov       counting,#0                     'under threshold, clear flag
               mov       last_ten_index,#0
               mov       last_hun_index,#0
               mov       last_thou_index,#0
               mov       samples_cnt,#0
               mov       samples_total,#0
 
-reset_ret     jmp       resetretaddr
+reset_counting_ret jmp resetretaddr
+
+              fit
 '
 '
 ' Data
@@ -365,16 +384,17 @@ average_load  long      |< averaging
 
 'Counting Specific Data
 'Flags
-completed     long      0
 counting      long      0
+square_wave   long      0
+
+samples_cnt   long      0
+samples_total long      0
+
 
 
 'Added to export
 flag_addr     res       1
-sample_count_addr   res       1
-
-samples_cnt   res       1
-samples_total res       1
+sample_count_addr res   1
 
 
 
@@ -385,7 +405,7 @@ last_thousand res       10
 'Indices
 last_ten_index res      1
 last_hun_index res      1
-last_thou_index res      1
+last_thou_index res     1
 
 'Useful others
 temp          res       1
