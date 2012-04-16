@@ -27,15 +27,17 @@ CON
   attenuation = 2               'try 0-4
   threshold = $20                'for detecting peak amplitude
 
-  KHz = 6
+  KHz = 7
+
+  timeout = 30_000
 
 
 OBJ
 
 '  fir : "fir_filter_4k"
 '  fir : "fir_filter_5k"
-  fir : "fir_filter_6k"
-'  fir : "fir_filter_7k"
+'  fir : "fir_filter_6k"
+  fir : "fir_filter_7k"
 
   pst : "Parallax Serial Terminal"
   f32 : "Float32"
@@ -53,7 +55,7 @@ VAR
   long  prev_freq
 
 
-PUB start | f, i, iten, ihun, freq, time, samples
+PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
 
   long[@flag] := 0
 
@@ -94,8 +96,15 @@ PUB start | f, i, iten, ihun, freq, time, samples
 
   f:= i := iten:= ihun := 0
 
+  screen_timeout := timeout
   repeat
     repeat while long[@flag] == f
+      if screen_timeout <> 0
+        screen_timeout -= 1
+      if screen_timeout == 1
+        gui.reset_display
+
+    screen_timeout := timeout
     f := long[@flag]
     if f == 0
       i := iten:= ihun := 0
@@ -103,39 +112,37 @@ PUB start | f, i, iten, ihun, freq, time, samples
       next
 
     samples := long[@sample_cnt]
-{    pst.str(string("Sample Count: "))
+{
+    pst.str(string("Sample Count: "))
     pst.dec(samples)
     pst.newline
 }
     sample_ones[i] := samples
 
     i += 1
+    'i used to keep track of incoming samples 1-10 (well, 0-9)
+    'once 10 is reached, i is used as for loop variable, then reset to 0
     if i == 10
       samples := 0
-      repeat i from 0 to 9        'average last 10 values of sample_count
+      repeat i from 0 to 9        'sum last 10 values of sample_count for averaging
         samples += sample_ones[i]
       sample_tens[iten] := samples
       iten += 1
       if iten == 10
         samples := 0
         iten := 0
-        repeat i from 0 to 9
+        repeat i from 0 to 9                            'sum last 100 samples
          samples += sample_tens[i]
         sample_huns[ihun] := samples
         ihun += 1
         freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(50)) , time ) )
 
         if prev_freq == F32.FRound(freq)
-          pst.str(string("Frequency: "))
-          pst.dec(F32.FRound(freq))
-          pst.str(string("."))
-          pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(10)))//10)
-          pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//10)
-          pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(1000)))//10)
-          pst.str(string(" Hz",pst#NL))
-
           note_worthy(freq)
         prev_freq := F32.FRound(freq)
+        if ihun == 10
+          ihun := 0
+
       i := 0
 
 PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
@@ -163,8 +170,6 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
   note = ( octave - truncated (octave) ) * 12
 
   cents = (note - truncated (note) ) * 100
-
-
 }}
   pst.str(string("Freq: "))
   pst.dec(F32.FTrunc(freq))
@@ -172,33 +177,31 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
   pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//100)
   pst.str(string("Hz",pst#NL))
 
-{  Input parameter freq is scaled up by 100 when passed into this function.}
-
     'lnote = log(f / 440) / log(2)
   lnote := F32.FDiv(F32.Log(F32.FDiv(freq,F32.FFloat(440))),F32.Log(F32.FFloat(2)))
 
     'octave = lnote + 4
   oct := F32.FAdd(lnote,F32.FFloat(4))
-
+{
   pst.str(string("Octave: "))
   pst.dec(F32.FTrunc(oct))
   pst.char(" ")
-
+}
     'note = ( octave - trunc(octave) ) * 12
   note := F32.FMul(F32.FSub(oct,F32.FFloat(F32.FTrunc(oct))),F32.FFloat(12))
-
+{
   pst.str(string("Note: "))
   pst.dec(F32.FRound(note))
   pst.char(" ")
-
+}
     'cents = ( note - trunc(note) ) * 100
   cents := F32.FRound(F32.FMul(F32.FSub(note,F32.FFloat(F32.FTrunc(note))),F32.FFloat(100)))
-
+{
   pst.str(string("Cents: "))
   pst.dec(cents)
   pst.char(" ")
   pst.newline
-
+}
   oct := F32.FTrunc(oct)
   note := F32.FRound(note)
 
@@ -225,15 +228,14 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
 
   pst.newline
 
-  pst.str(string("Final: "))
-
-  pst.dec(oct)
-  pst.char(" ")
+  pst.str(string("Note: "))
 
   char1 := note_table[note*2]
   char2 := note_table[(note*2)+1]
   pst.char(char1)
   pst.char(char2)
+  pst.char(" ")
+  pst.dec(oct)
 
   pst.newline
   pst.str(string("Cents: "))
