@@ -49,10 +49,12 @@ VAR
   long  sample_cnt
 
   long  sample_ones[10]
-  long  sample_tens[10] '10 sets of how many samples counted per zero-crossing
+  long  sample_tens[10] '10 sets of 'how many samples counted per zero-crossing'
   long  sample_huns[10]
 
   long  prev_freq
+
+  long  pst_on
 
 
 PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
@@ -65,34 +67,40 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
   F32.start
   'start filter impulse response engine
   fir.start(@fir_busy)
-  'start serial com
-  pst.start(115200)
-'  waitcnt(clkfreq + cnt)
-  pst.Clear
+  if ina[31] == 1                            'Check if we're connected via USB
+    pst_on := 1
+    'start serial com
+    pst.start(115200)
+    pst.Clear
+  else
+    pst_on := 0
 
 
   'launch assembly program into COG
   f := cognew(@asm_entry, @flag)
 
-  pst.str(string("Sampler Cog: "))
-  pst.dec(f)
-  pst.newline
+  if pst_on
+    pst.str(string("Sampler Cog: "))
+    pst.dec(f)
+    pst.newline
 
-  pst.str(string("Sample Rate: "))
-  pst.dec(sample_rate)
-  pst.newline
+    pst.str(string("Sample Rate: "))
+    pst.dec(sample_rate)
+    pst.newline
 
 
   time := F32.FDiv(F32.FFloat(1),F32.FDiv(F32.FFloat(CLK_FREQ),F32.FFloat(sample_rate)))
-  time := F32.FMul(time,F32.FFloat(1000))               'to ms
-  pst.str(string("Time Taken: "))
-  pst.dec(F32.FRound(time))
-  pst.str(string("."))
-  pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(10)))//10)
-  pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(100)))//10)
-  pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(1000)))//10)
-  pst.str(string(" ms",pst#NL))
-  time := F32.FDiv(time,F32.FFloat(1000))               'to secs for Hz conversion
+  if pst_on
+
+    time := F32.FMul(time,F32.FFloat(1000))               'to ms for display
+    pst.str(string("Time Taken per Sample: "))
+    pst.dec(F32.FRound(time))
+    pst.str(string("."))
+    pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(10)))//10)
+    pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(100)))//10)
+    pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(1000)))//10)
+    pst.str(string(" ms",pst#NL))
+    time := F32.FDiv(time,F32.FFloat(1000))               'to secs for Hz conversion
 
   f:= i := iten:= ihun := 0
 
@@ -104,7 +112,7 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
       if screen_timeout == 1
         gui.reset_display
 
-    f := long[@flag]
+    f := long[@flag]            'f is the local copy of the flag register
     if f == 0
       i := iten:= ihun := 0
 '      pst.str(string("STOPPED COUNTING",pst#NL))
@@ -134,8 +142,11 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
          samples += sample_tens[i]
         sample_huns[ihun] := samples
         ihun += 1
+        'since there are 2 zero crossings per wave, divide by 50 instead of 100
+        ''frequency = 1 / (number of waves * time taken)
         freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(50)) , time ) )
 
+        'frequency can vary wildly before settling down, so check against previous value
         if prev_freq == F32.FRound(freq)
           screen_timeout := timeout
           note_worthy(freq)
@@ -178,11 +189,13 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
 
   cents = (note - truncated (note) ) * 100
 }}
-  pst.str(string("Freq: "))
-  pst.dec(F32.FTrunc(freq))
-  pst.char(".")
-  pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//100)
-  pst.str(string("Hz",pst#NL))
+  if pst_on
+
+    pst.str(string("Freq: "))
+    pst.dec(F32.FTrunc(freq))
+    pst.char(".")
+    pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//100)
+    pst.str(string("Hz",pst#NL))
 
     'lnote = log(f / 440) / log(2)
   lnote := F32.FDiv(F32.Log(F32.FDiv(freq,F32.FFloat(440))),F32.Log(F32.FFloat(2)))
@@ -225,21 +238,23 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
   if (note > 11)              'catch a roll over
     note := 0
 
-  pst.str(string("Note: "))
+  if pst_on
+    pst.str(string("Note: "))
 
-  pst.dec(oct)
-  pst.char(" ")
+    pst.dec(oct)
+    pst.char(" ")
   char1 := note_table[note*2]
   char2 := note_table[(note*2)+1]
-  pst.char(char1)
-  pst.char(char2)
+  if pst_on
+    pst.char(char1)
+    pst.char(char2)
 
-  pst.newline
-  pst.str(string("Cents: "))
-  pst.dec(cents)
-  pst.char(" ")
-  pst.newline
-  pst.newline
+    pst.newline
+    pst.str(string("Cents: "))
+    pst.dec(cents)
+    pst.char(" ")
+    pst.newline
+    pst.newline
 
   freq := F32.FRound(F32.FMul(freq,F32.FFloat(100)))
   gui.update(oct,char1,char2,cents,freq)
@@ -294,7 +309,7 @@ asm_entry     mov       flag_addr,PAR
               sub       asm_sample,asm_old
               add       asm_old,asm_sample
 
-''Filtering
+'Filtering
               wrlong    asm_sample,asm_fir_data
               mov       temp,#1
               wrlong    temp,asm_fir_busy
@@ -302,7 +317,7 @@ asm_entry     mov       flag_addr,PAR
 :fir_loop     rdlong    temp,asm_fir_busy
               tjnz      temp,#:fir_loop
               rdword    asm_sample,asm_fir_data
-''
+'
 
               add       average,asm_sample              'compute average periodically so that
               djnz      average_cnt,#:avgsame           'we can 0-justify samples
@@ -338,10 +353,10 @@ if_nz         jmp       #:avgsame
 :pksame
 
 
-:threshold_test
-              tjnz      thresh_on,#:loop
 'if sample amplitudes are above the defined threshold,
 ' start counting number of samples between 0 crossings
+:threshold_test
+              tjnz      thresh_on,#:loop
               mov       temp,trig_max                   'check if trigger values are greater than threshold
               sub       temp,trig_min
               cmp       temp,#threshold         wc      'carry is written if dest is less than source
@@ -366,24 +381,24 @@ if_z          jmp       #:loop
 
               add       samples_cnt,#1                  'keep track of number of samples taken
 
+'square_wave is used as the flag variable to alert the spin cog of a change. 0 is 'not counting'
               cmp       square_wave,#1          wz      'wait for negative trigger threshold
 if_z          cmp       asm_sample,thresh_min   wc      'carry is set if dest is less than src
 if_z_and_c    mov       square_wave,#2
-if_z_and_c    jmpret    countretaddr,#count_crossings
-if_z          jmp       #:loop
+if_z_and_c    jmp       #:count_crossings
 
               cmp       square_wave,#2          wz      'wait for positive trigger threshold
 if_z          cmp       asm_sample,thresh_max   wc
 if_z_and_nc   mov       square_wave,#1
-if_z_and_nc   jmpret    countretaddr,#count_crossings
+if_z_and_nc   jmp       #:count_crossings
               jmp       #:loop
 '
 '
 ' Count number of zero crossings
 '
-count_crossings
+:count_crossings
               cmp       samples_cnt,#0          wz
-if_z          jmp       countretaddr
+if_z          jmp       #:loop
 
               mov       samples_total,samples_cnt
               mov       samples_cnt,#0
@@ -392,7 +407,8 @@ if_z          jmp       countretaddr
               wrlong    square_wave,flag_addr
 
               mov       temp,#0                 wz      'make sure zero flag is set upon return
-count_crossings_ret jmp countretaddr
+              jmp       #:loop
+'count_crossings_ret jmp countretaddr
 
               fit       $1F0
 '
@@ -423,20 +439,19 @@ samples_total long      0
 'Threshold for counting
 half_thresh   long      threshold / 2
 thresh_on     long      4
-thresh_min    res       1
-thresh_max    res       1
-
+thresh_min    res       1                       'res instructions MUST come last in a dat block
+thresh_max    res       1                       'it reserves memory but doesn't allocate it, shifting the address pointer
+                                                'contains whatever happens to be in cog ram at the time
 'Filter
 asm_fir_busy  res       1
 asm_fir_data  res       1
 
-'Added to export
+'External Communication
 flag_addr     res       1
 sample_count_addr res   1
 
 'Useful others
 temp          res       1
-countretaddr  res       1
 
 
 'demo originals
