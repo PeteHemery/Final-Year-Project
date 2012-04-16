@@ -218,24 +218,14 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
   if (note > 11)              'catch a roll over
     note := 0
 
-  pst.dec(note)
-  pst.char(" ")
-
-  char1 := note_table[note*2]
-  char2 := note_table[(note*2)+1]
-  pst.char(char1)
-  pst.char(char2)
-
-  pst.newline
-
   pst.str(string("Note: "))
 
+  pst.dec(oct)
+  pst.char(" ")
   char1 := note_table[note*2]
   char2 := note_table[(note*2)+1]
   pst.char(char1)
   pst.char(char2)
-  pst.char(" ")
-  pst.dec(oct)
 
   pst.newline
   pst.str(string("Cents: "))
