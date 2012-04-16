@@ -151,11 +151,11 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
         ihun += 1
         freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(50)) , time ) )
 
-{        last_three[2] := last_three[1]
+        last_three[2] := last_three[1]
         last_three[1] := last_three[0]
         last_three[0] := F32.FRound(freq)
 
-        if last_three[0] == last_three[1] AND last_three[0] == last_three[2] AND last_three[1] == last_three[2]}
+        if last_three[0] == last_three[1]' AND last_three[0] == last_three[2] AND last_three[1] == last_three[2]
           pst.str(string("Frequency: "))
           pst.dec(F32.FRound(freq))
           pst.str(string("."))
@@ -163,6 +163,8 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
           pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//10)
           pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(1000)))//10)
           pst.str(string(" Hz",pst#NL))
+
+          note_worthy(freq)
 {
         if ihun == 10
           pst.str(string("Thous: "))
@@ -228,8 +230,118 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
 }
 '    note_worthy(freq)
 
+PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
+{{
+           n / 12
+  f = (2 ^        ) x 440 Hz
 
-PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
+  note = (log2(f / 440)) x 12
+
+  This uses A4 as the centre octave of 0. So offset by 4.
+
+  octaves automatically yield factors of two times the original frequency,
+   since n is therefore a multiple of 12
+   (12k, where k is the number of octaves up or down), and so the formula reduces to:
+
+           12k / 12                    k
+  f = (2 ^          ) x 440   =   (2 ^   ) x 440
+
+  code:
+  lnote = log2(f / 440)
+  lnote = log(f / 440) / log(2)
+
+  octave = lnote + 4
+
+  note = ( octave - truncated (octave) ) * 12
+
+  cents = (note - truncated (note) ) * 100
+
+
+}}
+  pst.str(string("Freq: "))
+  pst.dec(F32.FTrunc(freq))
+  pst.char(".")
+  pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//100)
+  pst.str(string("Hz",pst#NL))
+
+{  Input parameter freq is scaled up by 100 when passed into this function.}
+
+    'lnote = log(f / 440) / log(2)
+  lnote := F32.FDiv(F32.Log(F32.FDiv(freq,F32.FFloat(440))),F32.Log(F32.FFloat(2)))
+
+    'octave = lnote + 4
+  oct := F32.FAdd(lnote,F32.FFloat(4))
+
+  pst.str(string("Octave: "))
+  pst.dec(F32.FTrunc(oct))
+  pst.char(" ")
+'  pst.newline
+
+    'note = ( octave - trunc(octave) ) * 12
+  note := F32.FMul(F32.FSub(oct,F32.FFloat(F32.FTrunc(oct))),F32.FFloat(12))
+
+  pst.str(string("Note: "))
+  pst.dec(F32.FRound(note))
+  pst.char(" ")
+'  pst.newline
+
+    'cents = ( note - trunc(note) ) * 100
+  cents := F32.FRound(F32.FMul(F32.FSub(note,F32.FFloat(F32.FTrunc(note))),F32.FFloat(100)))
+
+  pst.str(string("Cents: "))
+  pst.dec(cents)
+  pst.char(" ")
+  pst.newline
+
+  oct := F32.FTrunc(oct)
+  note := F32.FRound(note)
+
+  if cents == 100
+    cents := 0
+
+  if (cents > 50)
+'    note := note + 1
+    cents := cents - 100
+
+  if (note > 2)               'Octaves increment on the letter C
+    oct := oct + 1
+
+  if (note > 11)              'catch a roll over
+    note := 0
+
+  pst.dec(note)
+  pst.char(" ")
+
+  char1 := note_table[note*2]
+  char2 := note_table[(note*2)+1]
+  pst.char(char1)
+  pst.char(char2)
+
+  pst.newline
+
+'  pst.str(string("Final: Octave: "))
+  pst.str(string("Final: "))
+
+  pst.dec(oct)
+  pst.char(" ")
+'  pst.newline
+
+  char1 := note_table[note*2]
+  char2 := note_table[(note*2)+1]
+  pst.char(char1)
+  pst.char(char2)
+
+{  pst.str(string("Note: "))
+  pst.dec(note)
+  pst.char(" ")
+}  pst.newline
+  pst.str(string("Cents: "))
+  pst.dec(cents)
+  pst.char(" ")
+  pst.newline
+  pst.newline
+
+{PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
 
   lnote := F32.FAdd(F32.FDiv(F32.Log(F32.FDiv(freq,F32.FFloat(440))),F32.Log(2)),F32.FFloat(4))
   oct := F32.FFloat(F32.FTrunc(lnote))
@@ -245,12 +357,12 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
   pst.str(string("Octave: "))
   pst.dec(F32.FTrunc(oct))
   pst.char(" ")
-  pst.newline
+'  pst.newline
 
   pst.str(string("Cents: "))
   pst.dec(cents)
   pst.char(" ")
-  pst.newline
+'  pst.newline
 
   pst.str(string("Note: "))
   note := cents / 100
@@ -258,6 +370,11 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
   if (cents > 50)
     note += 1
     cents := -100 + cents
+  if note == 12
+    note := 0
+  if note > 2
+    oct += 1
+
   pst.dec(note)
   pst.char(" ")
 
@@ -270,7 +387,7 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
   pst.dec(cents)
   pst.char(" ")
   pst.newline
-
+}
 DAT
 note_table    byte      "A"," "
               byte      "A","#"
