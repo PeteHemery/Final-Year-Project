@@ -25,9 +25,9 @@ CON
 
   averaging = 10                '2-power-n samples to compute average with
   attenuation = 2               'try 0-4
-  threshold = $20                'for detecting peak amplitude
-
-  KHz = 7
+  threshold = $16               'for detecting peak amplitude and zero crossing
+                                '$16 is the lowest without any background noise
+    KHz = 7
 
   timeout = 30_000
 
@@ -104,7 +104,6 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
       if screen_timeout == 1
         gui.reset_display
 
-    screen_timeout := timeout
     f := long[@flag]
     if f == 0
       i := iten:= ihun := 0
@@ -138,7 +137,15 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
         freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(50)) , time ) )
 
         if prev_freq == F32.FRound(freq)
+          screen_timeout := timeout
           note_worthy(freq)
+        else
+
+          if screen_timeout <> 0
+            screen_timeout -= 1
+          if screen_timeout == 1
+            gui.reset_display
+
         prev_freq := F32.FRound(freq)
         if ihun == 10
           ihun := 0
