@@ -1,18 +1,20 @@
-''***************************************
-''*  Microphone-to-VGA v1.0             *
-''*  Author: Chip Gracey                *
-''*  Copyright (c) 2006 Parallax, Inc.  *
-''*  See end of file for terms of use.  *
-''***************************************
+''*****************************************
+''*  Frequency Counter Tuner v1.0         *
+''*  Author: Pete Hemery                  *
+''*  See end of file for terms of use.    *
+''*  Modified from Microphone-to-VGA v1.0 *
+''*  By Chip Gracey                       *
+''*****************************************
 
-' This program uses the Propeller Demo Board, Rev C
-'
-' The microphone is digitized and the samples are displayed on a VGA monitor, just like
-' an oscilloscope with triggering.
-'
-'-----------------------
-''Modified by Pete Hemery for Undergraduate Project 2011-2012
-''Displays detected frequency, note, octave and cent offset from microphone input.
+'' This program uses the Propeller Demo Board, Rev C
+''
+'' The microphone is digitized and the number of samples between zero crossings is counted.
+'' This is then sent to the spin cog for averaging and if a note is detected, information
+'' is displayed on the VGA or serial console.
+''
+''-----------------------
+''Modified Mic-VGA demo for Undergraduate Project 2011-2012
+''VGA Displays detected frequency, note, octave and cent offset from microphone input.
 
 CON
 
@@ -26,7 +28,7 @@ CON
   averaging = 10                '2-power-n samples to compute average with
   attenuation = 2               'try 0-4
   threshold = $16               'for detecting peak amplitude and zero crossing
-                                '$16 is the lowest without any background noise
+                                '$16 is the lowest without detecting any background noise
     KHz = 7
 
   timeout = 30_000
@@ -34,11 +36,7 @@ CON
 
 OBJ
 
-'  fir : "fir_filter_4k"
-'  fir : "fir_filter_5k"
-'  fir : "fir_filter_6k"
-  fir : "fir_filter_7k"
-
+  fir : "fir_filter_7k"         '1.5 KHz cut off low-pass filter
   pst : "Parallax Serial Terminal"
   f32 : "Float32"
   gui : "GUI_Demo"
@@ -79,7 +77,7 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
   'launch assembly program into COG
   f := cognew(@asm_entry, @flag)
 
-  if pst_on
+  if pst_on                                             'only use serial if connected
     pst.str(string("Sampler Cog: "))
     pst.dec(f)
     pst.newline
@@ -94,11 +92,11 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
 
     time := F32.FMul(time,F32.FFloat(1000))               'to ms for display
     pst.str(string("Time Taken per Sample: "))
-    pst.dec(F32.FRound(time))
+    pst.dec(F32.FTrunc(time))
     pst.str(string("."))
-    pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(10)))//10)
-    pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(100)))//10)
-    pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(1000)))//10)
+    pst.dec(F32.FTrunc(F32.FMul(time,F32.FFloat(10)))//10)
+    pst.dec(F32.FTrunc(F32.FMul(time,F32.FFloat(100)))//10)
+    pst.dec(F32.FTrunc(F32.FMul(time,F32.FFloat(1000)))//10)
     pst.str(string(" ms",pst#NL))
     time := F32.FDiv(time,F32.FFloat(1000))               'to secs for Hz conversion
 
@@ -107,6 +105,7 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
   screen_timeout := timeout
   repeat
     repeat while long[@flag] == f
+    'while waiting for a new value, countdown to reset display variables
       if screen_timeout <> 0
         screen_timeout -= 1
       if screen_timeout == 1
@@ -151,13 +150,13 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
           screen_timeout := timeout
           note_worthy(freq)
         else
-
+          'if new value isn't the same as previous, countdown to reset display variables
           if screen_timeout <> 0
             screen_timeout -= 1
           if screen_timeout == 1
             gui.reset_display
 
-        prev_freq := F32.FRound(freq)
+        prev_freq := F32.FRound(freq) 'save the current freq for comparison next iteration
         if ihun == 10
           ihun := 0
 
@@ -209,11 +208,7 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
 }
     'note = ( octave - trunc(octave) ) * 12
   note := F32.FMul(F32.FSub(oct,F32.FFloat(F32.FTrunc(oct))),F32.FFloat(12))
-{
-  pst.str(string("Note: "))
-  pst.dec(F32.FRound(note))
-  pst.char(" ")
-}
+
     'cents = ( note - trunc(note) ) * 100
   cents := F32.FRound(F32.FMul(F32.FSub(note,F32.FFloat(F32.FTrunc(note))),F32.FFloat(100)))
 {
@@ -228,22 +223,21 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
   if cents == 100
     cents := 0
 
-  if (cents > 50)
-'    note := note + 1
+  if cents > 50
     cents := cents - 100
 
-  if (note > 2)               'Octaves increment on the letter C
+  if note > 2                   'Octaves increment on the letter C
     oct := oct + 1
 
-  if (note > 11)              'catch a roll over
+  if note > 11                  'catch a roll over
     note := 0
 
-  if pst_on
+  if pst_on                     'only print debug if serial is connected
     pst.str(string("Note: "))
 
     pst.dec(oct)
     pst.char(" ")
-  char1 := note_table[note*2]
+  char1 := note_table[note*2]   'fetch relevant character from table below
   char2 := note_table[(note*2)+1]
   if pst_on
     pst.char(char1)
@@ -256,8 +250,8 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
     pst.newline
     pst.newline
 
-  freq := F32.FRound(F32.FMul(freq,F32.FFloat(100)))
-  gui.update(oct,char1,char2,cents,freq)
+  freq := F32.FRound(F32.FMul(freq,F32.FFloat(100)))    'update routine takes int freq value scaled up by 100
+  gui.update(oct,char1,char2,cents,freq)                'display the updated values
 
   
 DAT
@@ -277,7 +271,7 @@ note_table    byte      "A"," "
 DAT
 
 '
-' Assembly program  - Microphone sampler with optional FIR filtering.
+' Assembly program  - Microphone sampler with FIR filtering.
 '
               org       0
 
@@ -400,10 +394,8 @@ if_z_and_nc   jmp       #:count_crossings
               cmp       samples_cnt,#0          wz
 if_z          jmp       #:loop
 
-              mov       samples_total,samples_cnt
+              wrlong    samples_cnt, sample_count_addr
               mov       samples_cnt,#0
-
-              wrlong    samples_total, sample_count_addr
               wrlong    square_wave,flag_addr
 
               mov       temp,#0                 wz      'make sure zero flag is set upon return
@@ -432,9 +424,8 @@ average_load  long      |< averaging
 'Flags
 counting      long      0
 square_wave   long      1
-
+'Sample Counter
 samples_cnt   long      0
-samples_total long      0
 
 'Threshold for counting
 half_thresh   long      threshold / 2
