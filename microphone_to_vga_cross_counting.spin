@@ -43,6 +43,8 @@ OBJ
 
 VAR
 
+  long fir_busy, fir_data
+
   long  flag
   long  sample_cnt
 
@@ -77,6 +79,8 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
   long[@flag] := 0
   f := 0
   F32.start
+
+  fir.start(@fir_busy)
 
   'implant pointers and launch assembly program into COG
   asm_pixels := @pixels
@@ -159,7 +163,7 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
           pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//10)
           pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(1000)))//10)
           pst.str(string(" Hz",pst#NL))
-
+{
         if ihun == 10
           pst.str(string("Thous: "))
           pst.dec(ithou)
@@ -184,7 +188,7 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
              samples += sample_thous[i]
 '            samples /= 10
 '            freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(5000)) , time ) )
-{
+
           pst.str(string("Frequency: "))
           pst.dec(F32.FRound(freq))
           pst.str(string("."))
@@ -293,6 +297,11 @@ asm_entry     mov       flag_addr,PAR
               mov       sample_count_addr,flag_addr
               add       sample_count_addr,#4
 
+              mov       asm_fir_busy,flag_addr
+              sub       asm_fir_busy,#8
+              mov       asm_fir_data,flag_addr
+              sub       asm_fir_data,#4
+
               mov       dira,asm_dira                   'make pin 8 (ADC) output
 
               movs      ctra,#8
@@ -313,6 +322,16 @@ asm_entry     mov       flag_addr,PAR
               mov       asm_sample,phsa                 'capture PHSA and get differenc
               sub       asm_sample,asm_old
               add       asm_old,asm_sample
+
+''Filtering
+              wrlong    asm_sample,asm_fir_data
+              mov       temp,#1
+              wrlong    temp,asm_fir_busy
+
+:fir_loop     rdlong    temp,asm_fir_busy
+              tjnz      temp,#:fir_loop
+              rdword    asm_sample,asm_fir_data
+''
 
               add       average,asm_sample              'compute average periodically so that
               djnz      average_cnt,#:avgsame           'we can 0-justify samples
@@ -491,6 +510,9 @@ thresh_on     long      4
 thresh_min    res       1
 thresh_max    res       1
 
+'Filter
+asm_fir_busy  res       1
+asm_fir_data  res       1
 
 'Added to export
 flag_addr     res       1
