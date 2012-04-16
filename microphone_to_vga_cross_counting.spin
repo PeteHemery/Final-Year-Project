@@ -39,11 +39,11 @@ OBJ
   vga : "vga_512x384_bitmap"
   pst : "Parallax Serial Terminal"
   f32 : "Float32"
-  fir : "fir_filter_6K"
+  fir : "fir_filter_6k"
 
 VAR
 
-  long fir_busy, fir_data
+  long  fir_busy, fir_data
 
   long  flag
   long  sample_cnt
@@ -53,7 +53,7 @@ VAR
   long  sample_huns[10]
   long  sample_thous[10]
 
-  long last_three[3]
+  long  prev_freq
 
   long  sync, pixels[tiles32]
   word  colors[tiles], ypos[512]
@@ -151,11 +151,7 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
         ihun += 1
         freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(50)) , time ) )
 
-        last_three[2] := last_three[1]
-        last_three[1] := last_three[0]
-        last_three[0] := F32.FRound(freq)
-
-        if last_three[0] == last_three[1]' AND last_three[0] == last_three[2] AND last_three[1] == last_three[2]
+        if prev_freq == F32.FRound(freq)
           pst.str(string("Frequency: "))
           pst.dec(F32.FRound(freq))
           pst.str(string("."))
@@ -165,6 +161,7 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
           pst.str(string(" Hz",pst#NL))
 
           note_worthy(freq)
+        prev_freq := F32.FRound(freq)
 {
         if ihun == 10
           pst.str(string("Thous: "))
