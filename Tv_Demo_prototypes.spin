@@ -19,7 +19,7 @@ CON
   bitmap_base = $2000
   display_base = $5000
 
-  lines = 7
+  lines = 4
   thickness = 1
   
 
@@ -55,10 +55,14 @@ OBJ
 
   tv    : "tv"
   gr    : "graphics"
-  mouse : "mouse"
+'  mouse : "mouse"
+  pst : "Parallax Serial Terminal"
 
 
-PUB start | i, j, k, kk, dx, dy, pp, pq, rr, numx, numchr
+PUB start | i, j, k, kk, dx, dy, pp, pq, rr, numx, numchr, c
+
+  pst.start(115200)
+  pst.Clear
 
   'start tv
   longmove(@tv_status, @tvparams, paramcount)
@@ -69,11 +73,62 @@ PUB start | i, j, k, kk, dx, dy, pp, pq, rr, numx, numchr
   'init colors
   repeat i from 0 to 63
     colors[i] := $00001010 * (i+4) & $F + $2B060C02
+    pst.dec(i)
+    pst.str(string(": "))
+    pst.hex(colors[i],8)
+    pst.newline
+
+
+
+  repeat i from $00 to $0F
+    case i
+      5..10 : c := $01000000 * (i - 5) + $02020507
+      other  : c := $07020504
+    colors[i] := c
+  repeat i from $10 to $1F
+    colors[i] := $10100000 * (i & $F) + $0B0A0507
+  repeat i from $20 to $2F
+    colors[i] := $10100000 * (i & $F) + $0D0C0507
+  repeat i from $30 to $3F
+    colors[i] := $10100000 * (i & $F) + $080E0507
+
+''  _________
+''  tv_colors
+''
+''    pointer to longs which define colorsets
+''      number of longs must be 1..64
+''      each long has four 8-bit fields which define colors for 2-bit (four color) pixels
+''      first long's bottom color is also used as the screen background color
+''      8-bit color fields are as follows:
+''        bits 7..4: chroma data (0..15 = blue..green..red..)*
+''        bit 3: controls chroma modulation (0=off, 1=on)
+''        bits 2..0: 3-bit luminance level:
+''          values 0..1: reserved for sync - don't use
+''          values 2..7: valid luminance range, modulation adds/subtracts 1 (beware of 7)
+''          value 0 may be modulated to produce a saturated color toggling between levels 1 and 7
+''
+''      * because of TV's limitations, it doesn't look good when chroma changes abruptly -
+''        rather, use luminance - change chroma only against a black or white background for
+''        best appearance
+''  _____
+
 
   'init tile screen
   repeat dx from 0 to tv_hc - 1
     repeat dy from 0 to tv_vc - 1
       screen[dy * tv_hc + dx] := display_base >> 6 + dy + dx * tv_vc + ((dy & $3F) << 10)
+
+  'init tile screen
+  repeat x from 0 to tv_hc - 1
+    repeat y from 0 to tv_vc - 1
+      case y
+        0, 2 : i := $30 + x
+        3..4 : i := $20 + x
+        5..6 : i := $10 + x
+        8    : i := x
+        other:  i := 0
+      screen[x + y * tv_hc] := i << 10 + display_base >> 6 + x * tv_vc + y
+
 
   'init bouncing lines
   i := 1001
@@ -90,24 +145,42 @@ PUB start | i, j, k, kk, dx, dy, pp, pq, rr, numx, numchr
   gr.setup(16, 12, 128, 96, bitmap_base)
 
   'start mouse
-  mouse.start(24, 25)
+'  mouse.start(24, 25)
 
   repeat
 
     'clear bitmap
     gr.clear
 
+''   c              - color code in bits[1..0]
+''   w              - 0..15 for round pixels, 16..31 for square pixels
     'draw spinning triangles
- {   gr.colorwidth(3,0)
-    repeat i from 1 to 8
-      gr.vec(0, 0, (k & $7F) << 3 + i << 5, k << 6 + i << 8, @vecdef)
-}
+    gr.colorwidth(3,8)
+    repeat i from 1 to 4
+'' Draw a vector sprite
+''
+''   x,y            - center of vector sprite
+''   vecscale       - scale of vector sprite ($100 = 1x)
+''   vecangle       - rotation angle of vector sprite in bits[12..0]
+''   vecdef_ptr     - address of vector sprite definition
+'      gr.vec(0, 0, (k & $7F) << 3 + i << 5, k << 6 + i << 8, @vecdef)'original
+      gr.vec(0, 0, $280 + $20 << i, k << 2 + i << 8, @pianodef)
+
+
+
     'draw expanding mouse crosshairs
-{    gr.colorwidth(2,k>>2)
-    mousex := mousex + mouse.delta_x #> -128 <# 127
-    mousey := mousey + mouse.delta_y #> -96 <# 95
+    gr.colorwidth(2,k>>8)
+'    mousex := mousex + mouse.delta_x #> -128 <# 127
+ '   mousey := mousey + mouse.delta_y #> -96 <# 95
+
+'' Draw a pixel sprite
+''
+''   x,y            - center of vector sprite
+''   pixrot         - 0: 0°, 1: 90°, 2: 180°, 3: 270°, +4: mirror
+''   pixdef_ptr     - address of pixel sprite definition
+''
     gr.pix(mousex, mousey, k>>4 & $7, @pixdef)
-}
+
     'if left mouse button pressed, throw snowballs
 {    if mouse.button(0)
       gr.width(pq & $F)
@@ -115,46 +188,74 @@ PUB start | i, j, k, kk, dx, dy, pp, pq, rr, numx, numchr
       pp := (pq & $F)*(pq & $F) + 5
       pq++
       gr.arc(mousex, mousey, pp, pp>>1, -k * 200, $200, 8, 0)
+
+'' Draw an arc
+''
+''   x,y            - center of arc
+''   xr,yr          - radii of arc
+''   angle          - initial angle in bits[12..0] (0..$1FFF = 0°..359.956°)
+''   anglestep      - angle step in bits[12..0]
+''   steps          - number of steps (0 just leaves (x,y) at initial arc position)
+''   arcmode        - 0: plot point(s)
+''                    1: line to point(s)
+''                    2: line between points
+''                    3: line from point(s) to center
     else
       pq~
 }
     'if right mouse button pressed, pause
-    repeat while mouse.button(1)
+'    repeat while mouse.button(1)
 
     'draw expanding pixel halo
 '    gr.colorwidth(1,k)
 '    gr.arc(0,0,80,30,-k<<5,$2000/9,9,0)
 
     'step bouncing lines
-    repeat i from 0 to lines - 1
+{    repeat i from 0 to lines - 1
       if ||~x[i] > 60
         -xs[i]
       if ||~y[i] > 40
         -ys[i]
       x[i] += xs[i]
       y[i] += ys[i]
-
+}
     'draw bouncing lines
-    gr.colorwidth(1,thickness)
+{    gr.colorwidth(1,thickness)
     gr.plot(~x[0], ~y[0])
     repeat i from 1 to lines - 1
       gr.line(~x[i],~y[i])
     gr.line(~x[0], ~y[0])
-
+}
     'draw spinning stars and revolving crosshairs and dogs
 {    gr.colorwidth(2,0)
     repeat i from 0 to 7
+'' Draw a vector sprite at an arc position
+''
+''   x,y            - center of arc
+''   xr,yr          - radii of arc
+''   angle          - angle in bits[12..0] (0..$1FFF = 0°..359.956°)
+''   vecscale       - scale of vector sprite ($100 = 1x)
+''   vecangle       - rotation angle of vector sprite in bits[12..0]
+''   vecdef_ptr     - address of vector sprite definition
       gr.vecarc(80,50,30,30,-(i<<10+k<<6),$40,-(k<<7),@vecdef2)
+
+'' Draw a pixel sprite at an arc position
+''
+''   x,y            - center of arc
+''   xr,yr          - radii of arc
+''   angle          - angle in bits[12..0] (0..$1FFF = 0°..359.956°)
+''   pixrot         - 0: 0°, 1: 90°, 2: 180°, 3: 270°, +4: mirror
+''   pixdef_ptr     - address of pixel sprite definition
       gr.pixarc(-80,-40,30,30,i<<10+k<<6,0,@pixdef2)                           'dogs
       gr.pixarc(-80,-40,20,20,-(i<<10+k<<6),0,@pixdef)
 }
     'draw small box with text
-    gr.colorwidth(1,14)
+{    gr.colorwidth(1,14)
     gr.box(60,-80,60,16)
     gr.textmode(1,1,6,5)
     gr.colorwidth(2,0)
     gr.text(90,-72,@pchip)
-
+}
     'draw incrementing digit
 {    if not ++numx & 7
       numchr++
@@ -176,7 +277,7 @@ DAT
 tvparams                long    0               'status
                         long    1               'enable
                         long    %001_0101       'pins
-                        long    %0000           'mode
+                        long    %0001           'mode
                         long    0               'screen
                         long    0               'colors
                         long    x_tiles         'hc
@@ -187,6 +288,26 @@ tvparams                long    0               'status
                         long    0               'vo
                         long    0               'broadcast
                         long    0               'auralcog
+
+'' Vector sprite definition:
+''
+''    word    $8000|$4000+angle       'vector mode + 13-bit angle (mode: $4000=plot, $8000=line)
+''    word    length                  'vector length
+''    ...                             'more vectors
+''    ...
+''    word    0                       'end of definition
+pianodef                word    $4000+$2000/3*0         'piano octave
+                        word    50
+                        word    $8000+$2000/3*1+1
+                        word    50
+                        word    $8000+$2000/3*2-1
+                        word    50
+                        word    $8000+$2000/3*0
+                        word    50
+                        word    0
+
+
+
 
 vecdef                  word    $4000+$2000/3*0         'triangle
                         word    50

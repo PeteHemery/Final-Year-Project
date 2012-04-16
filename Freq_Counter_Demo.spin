@@ -359,8 +359,7 @@ if_nz         jmp       #:avgsame
 if_c          mov       counting,#0                     'under threshold, clear flag/stop counting
 if_nc         mov       counting,#1                     'above threshold, start counting
 
-if_nz_and_c   mov       samples_cnt,#0                  'if counting was 1 and samples are below threshold, reset variables
-if_nz_and_c   mov       samples_total,#0
+if_nz_and_c   mov       samples_cnt,#0                  'if counting was 1 and samples are below threshold, reset the counter
 
 if_nz_and_c   mov       temp,#0
 if_nz_and_c   wrlong    temp,flag_addr
