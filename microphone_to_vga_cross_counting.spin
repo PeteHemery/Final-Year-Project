@@ -28,9 +28,9 @@ CON
 
   averaging = 10                '2-power-n samples to compute average with
   attenuation = 2               'try 0-4
-  threshold = $10               'for detecting peak amplitude
+  threshold = $18               'for detecting peak amplitude
 
-  KHz = 10
+  KHz = 6
 
 
 OBJ
@@ -39,7 +39,7 @@ OBJ
   vga : "vga_512x384_bitmap"
   pst : "Parallax Serial Terminal"
   f32 : "Float32"
-  fir : "fir_filter_10K"
+  fir : "fir_filter_6K"
 
 VAR
 
