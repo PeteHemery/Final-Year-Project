@@ -27,10 +27,10 @@ CON
   sample_rate = CLK_FREQ / (1000 * KHz)  'Hz
 
   averaging = 10                '2-power-n samples to compute average with
-  attenuation = 2               'try 0-4
+  attenuation = 0               'try 0-4
   threshold = $18               'for detecting peak amplitude
 
-  KHz = 6
+  KHz = 7
 
 
 OBJ
@@ -39,10 +39,11 @@ OBJ
   vga : "vga_512x384_bitmap"
   pst : "Parallax Serial Terminal"
   f32 : "Float32"
-  fir : "fir_filter_6k"
+  fir : "fir_filter_7k"
 
 VAR
 
+  long  pst_on
   long  fir_busy, fir_data
 
   long  flag
@@ -72,10 +73,15 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
   'fill top line so that it gets erased by COG
   longfill(@pixels, $FFFFFFFF, vga#xtiles)
 
+  if ina[31] == 1                            'Check if we're connected via USB
+    pst_on := 1
 
-  pst.start(115200)
+    pst.start(115200)
 '  waitcnt(clkfreq + cnt)
-  pst.Clear
+    pst.Clear
+  else
+    pst_on := 0
+
   long[@flag] := 0
   f := 0
   F32.start
@@ -88,21 +94,23 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
 
   cognew(@asm_entry, @flag)
 
-  pst.str(string("Sample Rate: "))
-  pst.dec(sample_rate)
-  pst.newline
+  if pst_on == 1
+    pst.str(string("Sample Rate: "))
+    pst.dec(sample_rate)
+    pst.newline
 
 
   time := F32.FDiv(F32.FFloat(1),F32.FDiv(F32.FFloat(CLK_FREQ),F32.FFloat(sample_rate)))
-  time := F32.FMul(time,F32.FFloat(1000))               'to ms
-  pst.str(string("Time Taken: "))
-  pst.dec(F32.FRound(time))
-  pst.str(string("."))
-  pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(10)))//10)
-  pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(100)))//10)
-  pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(1000)))//10)
-  pst.str(string(" ms",pst#NL))
-  time := F32.FDiv(time,F32.FFloat(1000))               'to secs for Hz conversion
+  if pst_on == 1
+    time := F32.FMul(time,F32.FFloat(1000))               'to ms
+    pst.str(string("Time Taken: "))
+    pst.dec(F32.FRound(time))
+    pst.str(string("."))
+    pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(10)))//10)
+    pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(100)))//10)
+    pst.dec(F32.FRound(F32.FMul(time,F32.FFloat(1000)))//10)
+    pst.str(string(" ms",pst#NL))
+    time := F32.FDiv(time,F32.FFloat(1000))               'to secs for Hz conversion
 
   i := iten:= ihun := ithou := 0
 
@@ -110,8 +118,8 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
     repeat while long[@flag] == f
     f := long[@flag]
     if f == 0
-
-      pst.str(string("STOPPED COUNTING",pst#NL))
+      if pst_on == 1
+        pst.str(string("STOPPED COUNTING",pst#NL))
       i := iten:= ihun := ithou := 0
       next
 
@@ -132,7 +140,6 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
       samples := 0
       repeat i from 0 to 9        'average last 10 values of sample_count
         samples += sample_ones[i]
-'      samples /= 10
 
       sample_tens[iten] := samples
       iten += 1
@@ -145,87 +152,53 @@ PUB start | f, i, iten, ihun, ithou, freq, time, samples
         iten := 0
         repeat i from 0 to 9
          samples += sample_tens[i]
-'        samples /= 10
 
-        sample_huns[ihun] := samples
-        ihun += 1
         freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(50)) , time ) )
 
-        if prev_freq == F32.FRound(freq)
-          pst.str(string("Frequency: "))
-          pst.dec(F32.FRound(freq))
-          pst.str(string("."))
-          pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(10)))//10)
-          pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//10)
-          pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(1000)))//10)
-          pst.str(string(" Hz",pst#NL))
+        if prev_freq  > F32.FRound(freq) - 5 AND prev_freq  < F32.FRound(freq) + 5
+          if pst_on == 1
+            pst.str(string("Frequency: "))
+            pst.dec(F32.FTrunc(freq))
+            pst.str(string("."))
+            pst.dec(F32.FTrunc(F32.FMul(freq,F32.FFloat(10)))//10)
+            pst.dec(F32.FTrunc(F32.FMul(freq,F32.FFloat(100)))//10)
+            pst.dec(F32.FTrunc(F32.FMul(freq,F32.FFloat(1000)))//10)
+            pst.str(string(" Hz",pst#NL))
 
           note_worthy(freq)
         prev_freq := F32.FRound(freq)
 {
+        sample_huns[ihun] := samples
+        ihun += 1
         if ihun == 10
-          pst.str(string("Thous: "))
+{          pst.str(string("Thous: "))
           pst.dec(ithou)
           pst.newline
-
+}
           samples := 0
           ihun := 0
           repeat i from 0 to 9
-           samples += sample_huns[i]
-'          samples /= 10
+            samples += sample_huns[i]
 
-          sample_thous[ithou] := samples
-          ithou += 1
-'          freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(500)) , time ) )
-          if ithou == 10
-            pst.str(string("TenThous: "))
-            pst.newline
+          freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(500)) , time ) )
 
-            samples := 0
-            ithou := 0
-            repeat i from 0 to 9
-             samples += sample_thous[i]
-'            samples /= 10
-'            freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(5000)) , time ) )
+          if prev_freq  == F32.FRound(freq)
 
-          pst.str(string("Frequency: "))
-          pst.dec(F32.FRound(freq))
-          pst.str(string("."))
-          pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(10)))//10)
-          pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//10)
-          pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(1000)))//10)
-          pst.str(string(" Hz",pst#NL))
+            if pst_on == 1
+              pst.str(string("Frequency: "))
+              pst.dec(F32.FRound(freq))
+              pst.str(string("."))
+              pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(10)))//10)
+              pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//10)
+              pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(1000)))//10)
+              pst.str(string(" Hz",pst#NL))
+
+            note_worthy(freq)
+          prev_freq := F32.FRound(freq)
 }
       i := 0
 
 
-{
-    time := 0
-    repeat i from 0 to 9        'average last 10 values of sample_count
-      time += sample_count[i]
-      pst.str(string("sample count:"))
-      pst.dec(sample_count[i])
-      pst.newline
-    time /= 10
-
-    pst.str(string("Averaged number of samples: "))
-}
-{    samples := long[@sample_cnt]
-    pst.str(string("Number of samples: "))
-    pst.dec(samples)
-    pst.newline
-
-    freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FFloat(samples) , time ) )
-
-    pst.str(string("Frequency: "))
-    pst.dec(F32.FRound(freq))
-    pst.str(string("."))
-    pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(10)))//10)
-    pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//10)
-    pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(1000)))//10)
-    pst.str(string(" Hz",pst#NL))
-}
-'    note_worthy(freq)
 
 PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
 {{
@@ -255,88 +228,67 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
 
 
 }}
-  pst.str(string("Freq: "))
-  pst.dec(F32.FTrunc(freq))
-  pst.char(".")
-  pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//100)
-  pst.str(string("Hz",pst#NL))
+  if pst_on
 
-{  Input parameter freq is scaled up by 100 when passed into this function.}
+    pst.str(string("Freq: "))
+    pst.dec(F32.FTrunc(freq))
+    pst.char(".")
+    pst.dec(F32.FTrunc(F32.FMul(freq,F32.FFloat(100)))//100)
+    pst.str(string("Hz",pst#NL))
 
     'lnote = log(f / 440) / log(2)
   lnote := F32.FDiv(F32.Log(F32.FDiv(freq,F32.FFloat(440))),F32.Log(F32.FFloat(2)))
 
     'octave = lnote + 4
   oct := F32.FAdd(lnote,F32.FFloat(4))
-
+{
   pst.str(string("Octave: "))
   pst.dec(F32.FTrunc(oct))
   pst.char(" ")
-'  pst.newline
-
+}
     'note = ( octave - trunc(octave) ) * 12
   note := F32.FMul(F32.FSub(oct,F32.FFloat(F32.FTrunc(oct))),F32.FFloat(12))
 
-  pst.str(string("Note: "))
-  pst.dec(F32.FRound(note))
-  pst.char(" ")
-'  pst.newline
-
     'cents = ( note - trunc(note) ) * 100
   cents := F32.FRound(F32.FMul(F32.FSub(note,F32.FFloat(F32.FTrunc(note))),F32.FFloat(100)))
-
+{
   pst.str(string("Cents: "))
   pst.dec(cents)
   pst.char(" ")
   pst.newline
-
+}
   oct := F32.FTrunc(oct)
   note := F32.FRound(note)
 
   if cents == 100
     cents := 0
 
-  if (cents > 50)
-'    note := note + 1
+  if cents > 50
     cents := cents - 100
 
-  if (note > 2)               'Octaves increment on the letter C
+  if note > 2                   'Octaves increment on the letter C
     oct := oct + 1
 
-  if (note > 11)              'catch a roll over
+  if note > 11                  'catch a roll over
     note := 0
 
-  pst.dec(note)
-  pst.char(" ")
+  if pst_on                     'only print debug if serial is connected
+    pst.str(string("Note: "))
 
-  char1 := note_table[note*2]
+    pst.dec(oct)
+    pst.char(" ")
+  char1 := note_table[note*2]   'fetch relevant character from table below
   char2 := note_table[(note*2)+1]
-  pst.char(char1)
-  pst.char(char2)
+  if pst_on
+    pst.char(char1)
+    pst.char(char2)
 
-  pst.newline
-
-'  pst.str(string("Final: Octave: "))
-  pst.str(string("Final: "))
-
-  pst.dec(oct)
-  pst.char(" ")
-'  pst.newline
-
-  char1 := note_table[note*2]
-  char2 := note_table[(note*2)+1]
-  pst.char(char1)
-  pst.char(char2)
-
-{  pst.str(string("Note: "))
-  pst.dec(note)
-  pst.char(" ")
-}  pst.newline
-  pst.str(string("Cents: "))
-  pst.dec(cents)
-  pst.char(" ")
-  pst.newline
-  pst.newline
+    pst.newline
+    pst.str(string("Cents: "))
+    pst.dec(cents)
+    pst.char(" ")
+    pst.newline
+    pst.newline
 
 {PRI note_worthy(freq) | i, j, lnote, oct, cents, offset, alpha, note
 

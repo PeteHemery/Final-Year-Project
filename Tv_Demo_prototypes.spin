@@ -72,25 +72,13 @@ PUB start | i, j, k, kk, dx, dy, pp, pq, rr, numx, numchr, c
 
   'init colors
   repeat i from 0 to 63
-    colors[i] := $00001010 * (i+4) & $F + $2B060C02
+    colors[i] := $10001010 * (i) & $F + $0B060C02
     pst.dec(i)
     pst.str(string(": "))
     pst.hex(colors[i],8)
     pst.newline
 
 
-
-  repeat i from $00 to $0F
-    case i
-      5..10 : c := $01000000 * (i - 5) + $02020507
-      other  : c := $07020504
-    colors[i] := c
-  repeat i from $10 to $1F
-    colors[i] := $10100000 * (i & $F) + $0B0A0507
-  repeat i from $20 to $2F
-    colors[i] := $10100000 * (i & $F) + $0D0C0507
-  repeat i from $30 to $3F
-    colors[i] := $10100000 * (i & $F) + $080E0507
 
 ''  _________
 ''  tv_colors
@@ -118,16 +106,6 @@ PUB start | i, j, k, kk, dx, dy, pp, pq, rr, numx, numchr, c
     repeat dy from 0 to tv_vc - 1
       screen[dy * tv_hc + dx] := display_base >> 6 + dy + dx * tv_vc + ((dy & $3F) << 10)
 
-  'init tile screen
-  repeat x from 0 to tv_hc - 1
-    repeat y from 0 to tv_vc - 1
-      case y
-        0, 2 : i := $30 + x
-        3..4 : i := $20 + x
-        5..6 : i := $10 + x
-        8    : i := x
-        other:  i := 0
-      screen[x + y * tv_hc] := i << 10 + display_base >> 6 + x * tv_vc + y
 
 
   'init bouncing lines
@@ -155,7 +133,7 @@ PUB start | i, j, k, kk, dx, dy, pp, pq, rr, numx, numchr, c
 ''   c              - color code in bits[1..0]
 ''   w              - 0..15 for round pixels, 16..31 for square pixels
     'draw spinning triangles
-    gr.colorwidth(3,8)
+    gr.colorwidth(1,8)
     repeat i from 1 to 4
 '' Draw a vector sprite
 ''
@@ -168,8 +146,9 @@ PUB start | i, j, k, kk, dx, dy, pp, pq, rr, numx, numchr, c
 
 
 
+      gr.pixarc(-80,-40,30,30,i<<10+k<<6,0,@pixdef2)
     'draw expanding mouse crosshairs
-    gr.colorwidth(2,k>>8)
+    gr.colorwidth(2,k>>2)
 '    mousex := mousex + mouse.delta_x #> -128 <# 127
  '   mousey := mousey + mouse.delta_y #> -96 <# 95
 
@@ -179,7 +158,7 @@ PUB start | i, j, k, kk, dx, dy, pp, pq, rr, numx, numchr, c
 ''   pixrot         - 0: 0°, 1: 90°, 2: 180°, 3: 270°, +4: mirror
 ''   pixdef_ptr     - address of pixel sprite definition
 ''
-    gr.pix(mousex, mousey, k>>4 & $7, @pixdef)
+    gr.pix(mousex, mousey, k>>1 & $3, @pixdef)
 
     'if left mouse button pressed, throw snowballs
 {    if mouse.button(0)

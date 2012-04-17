@@ -27,7 +27,7 @@ CON
 
   averaging = 10                '2-power-n samples to compute average with
   attenuation = 2               'try 0-4
-  threshold = $16               'for detecting peak amplitude and zero crossing
+  threshold = $18               'for detecting peak amplitude and zero crossing
                                 '$16 is the lowest without detecting any background noise
     KHz = 7
 
@@ -55,7 +55,7 @@ VAR
   long  pst_on
 
 
-PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
+PUB start | f, i, iten, freq, time, samples, screen_timeout
 
   long[@flag] := 0
 
@@ -100,7 +100,7 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
     pst.str(string(" ms",pst#NL))
     time := F32.FDiv(time,F32.FFloat(1000))               'to secs for Hz conversion
 
-  f:= i := iten:= ihun := 0
+  f := i := iten := 0
 
   screen_timeout := timeout
   repeat
@@ -112,16 +112,19 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
         gui.reset_display
 
     f := long[@flag]            'f is the local copy of the flag register
-    if f == 0
-      i := iten:= ihun := 0
-'      pst.str(string("STOPPED COUNTING",pst#NL))
+    if f == 0                   '0 indicates wave is below threshold level. 1 or 2 is square wave value
+      i := iten := 0
+{      if pst_on
+        pst.str(string("STOPPED COUNTING",pst#NL))
+}
       next
 
     samples := long[@sample_cnt]
 {
-    pst.str(string("Sample Count: "))
-    pst.dec(samples)
-    pst.newline
+    if pst_on
+      pst.str(string("Sample Count: "))
+      pst.dec(samples)
+      pst.newline
 }
     sample_ones[i] := samples
 
@@ -139,14 +142,13 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
         iten := 0
         repeat i from 0 to 9                            'sum last 100 samples
          samples += sample_tens[i]
-        sample_huns[ihun] := samples
-        ihun += 1
+
         'since there are 2 zero crossings per wave, divide by 50 instead of 100
         ''frequency = 1 / (number of waves * time taken)
         freq := F32.FDiv( F32.FFloat(1), F32.FMul( F32.FDiv(F32.FFloat(samples) , F32.FFloat(50)) , time ) )
 
         'frequency can vary wildly before settling down, so check against previous value
-        if prev_freq == F32.FRound(freq)
+        if prev_freq  > F32.FRound(freq) - 5 AND prev_freq  < F32.FRound(freq) + 5
           screen_timeout := timeout
           note_worthy(freq)
         else
@@ -157,8 +159,6 @@ PUB start | f, i, iten, ihun, freq, time, samples, screen_timeout
             gui.reset_display
 
         prev_freq := F32.FRound(freq) 'save the current freq for comparison next iteration
-        if ihun == 10
-          ihun := 0
 
       i := 0
 
@@ -189,11 +189,10 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
   cents = (note - truncated (note) ) * 100
 }}
   if pst_on
-
     pst.str(string("Freq: "))
     pst.dec(F32.FTrunc(freq))
     pst.char(".")
-    pst.dec(F32.FRound(F32.FMul(freq,F32.FFloat(100)))//100)
+    pst.dec(F32.FTrunc(F32.FMul(freq,F32.FFloat(100)))//100)
     pst.str(string("Hz",pst#NL))
 
     'lnote = log(f / 440) / log(2)
