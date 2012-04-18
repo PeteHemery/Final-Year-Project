@@ -40,11 +40,10 @@ OBJ
   gr    : "graphics"
   pst : "Parallax Serial Terminal"
 
-PUB start | x, y, i, c, k, temp
+PUB start | x, y, i, c, k, octave
 
 
   pst.start(115200)
-  pst.Clear
 
   'start tv
   longmove(@tv_status, @tvparams, paramcount)
@@ -53,22 +52,23 @@ PUB start | x, y, i, c, k, temp
   tv.start(@tv_status)
 
   'init colors
-  repeat i from $00 to $3F
-    colors[i] := $2E2C0702
+  repeat i from $00 to $0F
+    colors[i] := $0502072E
+
+  colors[0] := $2C2E0702       'background
+'   colors[1] := $2C2E0207       'piano
 
   'init tile screen
   repeat x from 0 to tv_hc - 1
     repeat y from 0 to tv_vc - 1
-      screen[x + y * tv_hc] := $00 << 10 + display_base >> 6 + x * tv_vc + y
-{
+'      screen[x + y * tv_hc] := $0 << 10 + display_base >> 6 + x * tv_vc + y
+
       case y
-        0, 2 : i := $30 + x
-        3..4 : i := $20 + x
-        5..6 : i := $10 + x
-        8    : i := x
-        other:  i := 0
+        0..3 : i := $01
+        other:  i := $00
+'      i := x
       screen[x + y * tv_hc] := i << 10 + display_base >> 6 + x * tv_vc + y
-}
+
 
   'start and setup graphics
   gr.start
@@ -80,27 +80,48 @@ PUB start | x, y, i, c, k, temp
     gr.clear
 
     'draw color samples
-    gr.width(31)
+    gr.width(20)
     'draw saturated samples
-    gr.color(3)
+{    gr.color(3)
     repeat x from 0 to 15
       gr.plot(x << 4 + 7, 183)
-
+}
 '' Set pixel width
 '' actual width is w[3..0] + 1
 ''
 ''   w              - 0..15 for round pixels, 16..31 for square pixels
-    gr.width(16)
-    gr.pix($30, 160, 0, @pixdef)
-
-    gr.colorwidth(2,16)
-    gr.plot(50,10)
-    gr.quad(10,100,10,150,50,150,50,100)
-    gr.color(3)
-    gr.plot(150,140)
-    gr.line(100, 100)
+{    gr.width(16)
+    gr.pix($80, 150, 0, @pixdef)
+}
+    draw_scale
     'copy bitmap to display
     gr.copy(display_base)
+
+
+PUB draw_scale | i'(octave, notes)
+'  gr.quad(10,100,10,150,50,150,50,100)
+
+  repeat i from 0 to 7
+    draw_white_note(4+i<<2,$B0,18,30)
+
+  repeat i from 0 to 6
+    case i
+      0, 2, 3, 5, 6 :  draw_black_note(4+i<<2+2,$B0,18,17)
+
+PUB draw_white_note(x,y,width,length)
+{    gr.colorwidth(1,18)
+    gr.plot(50,150)
+    gr.line(50,180)
+}
+    gr.colorwidth(1,width)
+    gr.plot(x,y)
+    gr.line(x,y-length)
+
+PUB draw_black_note(x,y,width,length)
+    gr.colorwidth(2,width)
+    gr.plot(x,y)
+    gr.line(x,y-length)
+
 
 DAT
 
