@@ -25,10 +25,10 @@ CON
 'Modify constants below for behaviour changes.
 
   averaging =13                '2-power-n samples to compute average with
-  attenuation = 4               'try 0-4
+  attenuation = 0               'try 0-4
 
   KHz = 6                       'max 13 with 2 FFTs (for which filtering must be off)
-  filtering = 1                 'turn off for different sample rates than provided
+  filtering = 0                 'turn off for different sample rates than provided
 
 OBJ
 '' Uncomment relevant object for Finite Impulse Response Low-Pass filtering with 1.5 KHz cut off
@@ -101,6 +101,12 @@ asm_entry     mov       dira,asm_dira                   'make pin 8 (ADC) output
 
               add       in_ptr,#4  'set to read next long from hub ram, giving time for fetch/execute of updated :patch long
               djnz      t1,#:rdloop
+
+'if using a single cog, write to audio buffer instead of directly to fft buffer
+'              cmp       number_of_ffts,#1       wz
+'if_z          add       asm_buffer1_ptr,#asm_array_size * 4
+'if_z          sub       asm_fft1_ptr,#4
+
 
               mov       buffer_number,#0
               mov       fft_ptr,asm_fft1_ptr             'use fft_ptr as relevent flag pointer

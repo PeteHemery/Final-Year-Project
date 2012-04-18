@@ -78,10 +78,10 @@ init                    mov     fft_n,#1
                         rdlong  asm_time_ptr,in_ptr     'Time Keeping Pointer
 
                         add     in_ptr,#4
-                        rdlong  fft_fr,in_ptr           'Real Buffer Pointer  - 2048 bytes
+                        rdlong  fft_real_buf_ptr,in_ptr 'Real Buffer Pointer  - 2048 bytes
 
                         add     in_ptr,#4
-                        rdlong  fft_fi,in_ptr           'Imaginary Buffer Pointer - 2048 bytes
+                        rdlong  fft_imag_buf_ptr,in_ptr 'Imaginary Buffer Pointer - 2048 bytes
 
                         add     in_ptr,#4
                         rdlong  cnt_bitmap_ptr,in_ptr   'VGA Screen Bitmap Pointer
@@ -125,10 +125,10 @@ ldecimate               mov     fft_jj,fft_ii
                         mov     fft_fr_ii,fft_ii
                         mov     fft_fr_jj,fft_jj
                         shl     fft_fr_ii,#1
-                        add     fft_fr_ii,fft_fr
+                        add     fft_fr_ii,fft_real_buf_ptr
                         rdword  fft_tr,fft_fr_ii
                         shl     fft_fr_jj,#1
-                        add     fft_fr_jj,fft_fr
+                        add     fft_fr_jj,fft_real_buf_ptr
                         rdword  fft_result,fft_fr_jj
                         wrword  fft_tr,fft_fr_jj
                         wrword  fft_result,fft_fr_ii
@@ -166,8 +166,8 @@ lets_rock_for_2         cmp     fft_ii,fft_n      wc
                         mov     fft_fi_jj,fft_jj
                         shl     fft_fi_jj,#1      ' word access
                         mov     fft_fr_jj,fft_fi_jj
-                        add     fft_fr_jj,fft_fr
-                        add     fft_fi_jj,fft_fi
+                        add     fft_fr_jj,fft_real_buf_ptr
+                        add     fft_fi_jj,fft_imag_buf_ptr
  
                         rdword  fft_result,fft_fr_jj
                         call    #lets_mul_wr
@@ -186,8 +186,8 @@ lets_rock_for_2         cmp     fft_ii,fft_n      wc
                         mov     fft_fi_ii,fft_ii
                         shl     fft_fi_ii,#1          ' word access
                         mov     fft_fr_ii,fft_fi_ii
-                        add     fft_fr_ii,fft_fr
-                        add     fft_fi_ii,fft_fi
+                        add     fft_fr_ii,fft_real_buf_ptr
+                        add     fft_fi_ii,fft_imag_buf_ptr
  
                         rdword  fft_qr,fft_fr_ii      ' qr = fr[i]
                         shl     fft_qr,#16
@@ -391,8 +391,8 @@ lets_sqrt_qi_l          shl     fft_qi,#1   wc
 lets_sqrt_qi_ret        ret
  
 calc_abs                mov      fft_ii,#511
-                        mov      fft_fr_ii,fft_fr
-                        mov      fft_fi_ii,fft_fi
+                        mov      fft_fr_ii,fft_real_buf_ptr
+                        mov      fft_fi_ii,fft_imag_buf_ptr
 calc_abs_5              rdword   fft_qr,fft_fr_ii
                         call     #lets_mul_qr
                         mov      fft_qi,fft_result
@@ -411,7 +411,7 @@ calc_abs_ret            ret
 plot                    mov      fft_ii,#40
                         mov      fft_jj,#0
  
-                        mov      fft_fr_ii,fft_fr
+                        mov      fft_fr_ii,fft_real_buf_ptr
 plot_8p                 mov      fft_k,#$80
                         rdword   fft_qr,fft_fr_ii
                         add      fft_fr_ii,#2
@@ -484,8 +484,8 @@ fft_n                   long    0
  
 fft_qr                  long    0
 fft_qi                  long    0
-fft_fr                  long    0
-fft_fi                  long    0
+fft_real_buf_ptr        long    0
+fft_imag_buf_ptr        long    0
 fft_tr                  long    0
 fft_ti                  long    0
 fft_wr                  long    0
