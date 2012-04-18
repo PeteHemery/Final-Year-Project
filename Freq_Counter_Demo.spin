@@ -140,7 +140,7 @@ PUB start | f, i, iten, freq, time, samples, screen_timeout
       if iten == 10
         samples := 0
         iten := 0
-        repeat i from 0 to 9                            'sum last 100 samples
+        repeat i from 0 to 9                            'sum last 100 sample_count values
          samples += sample_tens[i]
 
         'since there are 2 zero crossings per wave, divide by 50 instead of 100
@@ -230,6 +230,8 @@ PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
 
   if note > 11                  'catch a roll over
     note := 0
+  if note < 0
+    note := 11
 
   if pst_on                     'only print debug if serial is connected
     pst.str(string("Note: "))
