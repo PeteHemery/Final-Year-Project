@@ -325,7 +325,12 @@ vecdef2                 word    $4000+$2000/12*0        'star
                         word    $8000+$2000/12*0
                         word    50
                         word    0
-
+' pixdef:       word
+'               byte    xwords, ywords, xorigin, yorigin
+'               word    %%xxxxxxxx,%%xxxxxxxx
+'               word    %%xxxxxxxx,%%xxxxxxxx
+'               word    %%xxxxxxxx,%%xxxxxxxx
+'               ...
 pixdef                  word                            'crosshair
                         byte    2,7,3,3
                         word    %%00333000,%%00000000

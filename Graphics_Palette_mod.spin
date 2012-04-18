@@ -82,16 +82,38 @@ PUB start | x, y, i, c, k, temp
     if i < 10
       pst.str(string(" "))
     pst.str(string(": "))
+    pst.hex((colors[i] >> 24) & $FF,2)
+    pst.str(string(" "))
+    pst.hex((colors[i] >> 16) & $FF,2)
+    pst.str(string(" "))
+    pst.hex((colors[i] >> 8) & $FF,2)
+    pst.str(string(" "))
     pst.hex(colors[i] & $F,2)
     pst.str(string(" "))
-    pst.hex((colors[i] >> 8) & $F,2)
-    pst.str(string(" "))
-    pst.hex((colors[i] >> 16) & $F,2)
-    pst.str(string(" "))
-    pst.hex((colors[i] >> 24) & $F,2)
-    pst.str(string(" "))
+    if (i+1) // $10 == 0
+      pst.newline
 
     pst.newline
+{
+  pst.str(string("Chroma  b&w/col  luminance:",pst#NL))
+  repeat i from 0 to 63
+    pst.dec(i)
+    pst.str(string(": "))
+    if i < 10
+      pst.str(string(" "))
+    repeat x from 3 to 0
+      pst.dec((colors[i] >> (8 * x)) >> 4 & $F)
+      pst.str(string(" "))
+      pst.dec((colors[i] >> (8 * x)) >> 3 & $1)
+      pst.str(string(" "))
+      pst.dec((colors[i] >> (8 * x)) & $7)
+      pst.str(string(" | "))
+
+    if (i+1) // $10 == 0
+      pst.newline
+
+    pst.newline
+}
 ''  _________
 ''  tv_colors
 ''
@@ -112,17 +134,39 @@ PUB start | x, y, i, c, k, temp
 ''        best appearance
 ''  _____
 
-
+  pst.str(string(pst#NL,"Screen Colour Value:",pst#NL))
   'init tile screen
   repeat x from 0 to tv_hc - 1
+    pst.dec(x)
+    pst.str(string(": ",pst#NL))
     repeat y from 0 to tv_vc - 1
       case y
         0, 2 : i := $30 + x
         3..4 : i := $20 + x
         5..6 : i := $10 + x
-        8..10: i := x
+        8    : i := x
         other:  i := 0
       screen[x + y * tv_hc] := i << 10 + display_base >> 6 + x * tv_vc + y
+      pst.hex(i,2)
+      pst.char(" ")
+      pst.dec(display_base >> 6 + x * tv_vc + y)
+      pst.newline
+    pst.newline
+
+''  _________
+''  tv_screen
+''
+''    pointer to words which define screen contents (left-to-right, top-to-bottom)
+''      number of words must be tv_ht * tv_vt
+''      each word has two bitfields: a 6-bit colorset ptr and a 10-bit pixelgroup ptr
+''        bits 15..10: select the colorset* for the associated pixel tile
+''        bits 9..0: select the pixelgroup** address %ppppppppppcccc00 (p=address, c=0..15)
+''
+''       * colorsets are longs which each define four 8-bit colors
+''
+''      ** pixelgroups are <tileheight> longs which define (left-to-right, top-to-bottom) the 2-bit
+''         (four color) pixels that make up a 16x16 or a 32x32 pixel tile
+
 
   'start and setup graphics
   gr.start
@@ -139,14 +183,14 @@ PUB start | x, y, i, c, k, temp
     gr.clear
 
     'draw color samples
-    gr.width(29)
+    gr.width(15)
     'draw saturated samples
     gr.color(3)
     repeat x from 0 to 15
       gr.plot(x << 4 + 7, 183)
     'draw gradient samples
     repeat y from 2 to 6
-      gr.color(1)'y & 1 | 2)
+      gr.color(1 & 1 | 2)
       repeat x from 0 to 15
         gr.plot(x << 4 + 7, 183 - y << 4)
     'draw monochrome samples
