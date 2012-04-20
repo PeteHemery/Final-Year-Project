@@ -32,6 +32,8 @@ CON
   TIMEOUT = 60000
 
 VAR
+  'serial com on flag
+  long  pst_on
 
   long  sync,pixels[tiles32]
   word  colors[tiles]
@@ -68,9 +70,9 @@ OBJ
   fft   : "fft"
   pst   : "Parallax Serial Terminal"                   ' Serial communication object
   aud   : "sampler"
-  f32 : "Float32"
+  f32   : "Float32"
 
-pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on, audio_time, audio_max, audio_min
+pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, audio_time, audio_max, audio_min, freq, temp
 '' launch - This function starts the spectrograph demo.
 ''    Serial terminal is used for debug output.
 ''    The audio sampler is started with the first parameter of its consecutive Hub RAM pointers.
@@ -169,6 +171,7 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on, audio_time, a
   if pst_on
     pst.Str(String(pst#NL,"Audio Flag value before loop: "))
     pst.Dec(long[@aud_flag])
+    pst.newline
   waitcnt(clkfreq + cnt)                   'Pause 1 Second while we boot up
   audio_max := 0
   audio_min := 2_000_000
@@ -259,20 +262,28 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, pst_on, audio_time, a
         fft_flag_prev[i] := fft_flag_val[i]
         fft_time_prev[i] := fft_time_val[i]
 
+        temp := 0
         if fft_flag_val[i] <> 0
 '          pst.Str(String("FFT Output: ",pst#NL))
-          repeat i from 2 to 260'(fft#NN /2) -1            '0 and 1 are always high, it looks like
-            if ~~word[@real_buffer][i] > 20
-              pst.dec(i)
+          repeat i from 24 to 200'(fft#NN /2) -1            '0 and 1 are always high, it looks like
+'            if ~~word[@real_buffer][i] > ~~word[@real_buffer][i-1] + 10 OR ~~word[@real_buffer][i] > ~~word[@real_buffer][i+1] + 10
+            if ~~word[@real_buffer][i] > 15
+              temp := 1
+{              pst.dec(i)
               pst.char(":")
               pst.char(" ")
               pst.dec(~~word[@real_buffer][i])
-              pst.char(" ")
-              pst.dec(F32.FRound(F32.FMul(F32.FFloat(i),F32.FFloat(aud#KHz))))
+              pst.char(" ")}
+              freq := F32.FMul(F32.FFloat(i),F32.FFloat(aud#KHz))
+{              pst.dec(F32.FRound(freq))
               pst.char(" ")
               pst.char("H")
               pst.char("z")
-              pst.newline
+              pst.newline}
+              note_worthy(freq)
+
+        if temp == 1
+          pst.Str(String(pst#NL,"Notes Detected!",pst#NL))
 
 PUB setup_pointers | i
   'setup list of pointers for sampler object
@@ -291,6 +302,96 @@ PUB setup_pointers | i
       long[@fft_flag][i] := 1         'not ready to go
       long[@fft_flag_ptr][i] := @fft_flag[i]
       long[@buffer_ptr][i] := @real_buffer[i*fft#NN]
+PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
+{{
+           n / 12
+  f = (2 ^        ) x 440 Hz
+
+  note = (log2(f / 440)) x 12
+
+  This uses A4 as the centre octave of 0. So offset by 4.
+
+  octaves automatically yield factors of two times the original frequency,
+   since n is therefore a multiple of 12
+   (12k, where k is the number of octaves up or down), and so the formula reduces to:
+
+           12k / 12                    k
+  f = (2 ^          ) x 440   =   (2 ^   ) x 440
+
+  code:
+  lnote = log2(f / 440)
+  lnote = log(f / 440) / log(2)
+
+  octave = lnote + 4
+
+  note = ( octave - truncated (octave) ) * 12
+
+  cents = (note - truncated (note) ) * 100
+}}
+    'lnote = log(f / 440) / log(2)
+  lnote := F32.FDiv(F32.Log(F32.FDiv(freq,F32.FFloat(440))),F32.Log(F32.FFloat(2)))
+
+    'octave = lnote + 4
+  oct := F32.FAdd(lnote,F32.FFloat(4))
+{
+  pst.str(string("Octave: "))
+  pst.dec(F32.FTrunc(oct))
+  pst.char(" ")
+}
+    'note = ( octave - trunc(octave) ) * 12
+  note := F32.FMul(F32.FSub(oct,F32.FFloat(F32.FTrunc(oct))),F32.FFloat(12))
+
+    'cents = ( note - trunc(note) ) * 100
+  cents := F32.FRound(F32.FMul(F32.FSub(note,F32.FFloat(F32.FTrunc(note))),F32.FFloat(100)))
+{
+  pst.str(string("Cents: "))
+  pst.dec(cents)
+  pst.char(" ")
+  pst.newline
+}
+  oct := F32.FTrunc(oct)
+  note := F32.FRound(note)
+
+  if cents == 100
+    cents := 0
+
+  if cents > 50
+    cents := cents - 100
+
+  if note > 2                   'Octaves increment on the letter C
+    oct := oct + 1
+
+  if note > 11                  'catch a roll over
+    note := 0
+  if note < 0
+    note := 11
+
+  if pst_on                     'only print debug if serial is connected
+'    pst.str(string("Note: "))
+
+    pst.dec(oct)
+  char1 := note_table[note*2]   'fetch relevant character from table below
+  char2 := note_table[(note*2)+1]
+  if pst_on
+    pst.char(char1)
+    pst.char(char2)
+    pst.char(" ")
+
+  freq := F32.FRound(F32.FMul(freq,F32.FFloat(100)))    'update routine takes int freq value scaled up by 100
+
+DAT
+note_table    byte      "A"," "
+              byte      "A","#"
+              byte      "B"," "
+              byte      "C"," "
+              byte      "C","#"
+              byte      "D"," "
+              byte      "D","#"
+              byte      "E"," "
+              byte      "F"," "
+              byte      "F","#"
+              byte      "G"," "
+              byte      "G","#"
 
 {{
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
