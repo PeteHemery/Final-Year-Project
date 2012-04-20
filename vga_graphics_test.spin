@@ -61,105 +61,57 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char
     repeat x from 0 to 14
       repeat y from 0 to 9
         case y
-          0..2  : gr.color(x*10+y,$00 + (y << 2) << 8)
-          3..4  : gr.color(x*10+y,$00 + ((y - 3) << 4 + $2 << 2) << 8)
+        {
+          'colourful foreground
+          0..3  : gr.color(x*10+y,$00 + (y << 2) << 8)
+          4     : gr.color(x*10+y,$00 + ($1 << 4 + $2 << 2) << 8)
           5     : gr.color(x*10+y,$00 + ($1 << 6 + $3 << 4 + $1 << 2) << 8)
           6     : gr.color(x*10+y,$00 + ($1 << 6 + $2 << 4 + $1 << 2) << 8)
-          7     : gr.color(x*10+y,$00 + ($3 << 6 + 2 << 4 + $0 << 2) << 8)
-          8     : gr.color(x*10+y,$00 + ($3 << 6 + 1 << 4 + $0 << 2) << 8)
-          9     : gr.color(x*10+y,$FF00)
-          {
-          0..2  : gr.color(x*10+y,$FF00 + y << 2)
-          3..4  : gr.color(x*10+y,$FF00 + (y - 3) << 4 + $2 << 2)
-          5     : gr.color(x*10+y,$FF00 + $1 << 6 + $3 << 4 + $1 << 2)
-          6     : gr.color(x*10+y,$FF00 + $1 << 6 + $2 << 4 + $1 << 2)
-          7     : gr.color(x*10+y,$FF00 + $3 << 6 + 2 << 4 + $0 << 2)
-          8     : gr.color(x*10+y,$FF00 + $3 << 6 + 1 << 4 + $0 << 2)
+          7     : gr.color(x*10+y,$00 + ($3 << 6 + $2 << 4 + $0 << 2) << 8)
+          8     : gr.color(x*10+y,$00 + ($3 << 6 + $1 << 4 + $0 << 2) << 8)
           9     : gr.color(x*10+y,$FF00)
           }
-    {
-    repeat i from 0 to tiles - 1                        'init tile colors to white on black
-      gr.color(i,%%3100_0010)    'gold on blue
-      'gr.color(i,$FF00)
-      gr.color(i,$FF<<8+((i<<2) & $FF))                              'init tile colors "Nice view"
-'      gr.color(i,($FF00 + (i >> 4 & $3) << 6 + (i >> 2 & $3) << 4 + (i & $3) << 2)) 'every colour
-      }{
-      pst.dec(i)
-      pst.char(":")
-      pst.hex($FF00 + ((i >> 4 & $3) << 6 + (i >> 2 & $3) << 4 + (i & $3) << 2),4)
-      pst.newline}
-'    gr.text(0,0,string("Parallax VGA text and graphics"))
-'    gr.SimpleNum(464,32,123,3)
+          'colourful background
+          0..3  : gr.color(x*10+y,$FF00 + y << 2)
+          4     : gr.color(x*10+y,$FF00 + $1 << 4 + $2 << 2)
+          5     : gr.color(x*10+y,$FF00 + $1 << 6 + $3 << 4 + $1 << 2)
+          6     : gr.color(x*10+y,$FF00 + $1 << 6 + $3 << 4 + $1 << 2)
+          7     : gr.color(x*10+y,$FF00 + $3 << 6 + $2 << 4 + $0 << 2)
+          8     : gr.color(x*10+y,$FF00 + $3 << 6 + $1 << 4 + $0 << 2)
+          9     : gr.color(x*10+y,$FF00)
 
-    gr.pointcolor(1)
-    gr.line(1,0,0,240)
-
-    gr.box(30,50,80,100)                                'draw a box
-    'or
-    gr.shape(200,75,71,71,4,gr.deg(0))                  'draw a box
-
-
-    gr.boxfill(40,60,70,90)                             'draw a filled box
-
-
-'    repeat i from 3 to 15
-'      gr.shape(256,192,300,300,i,gr.deg(90))            'i = 3  triangle
-                                                        'i = 4  square
-                                                        'i = 5  pentagon
-                                                        'i = 6  hexagon
-                                                        'i = 7  heptagon
-                                                        'i = 8  octagon
-                                                        'i = 9  nonagon
-                                                        'i = 10 decagon
-                                                        'i = 11 hendecagon
-                                                        'i = 12 didecqgon
-                                                        'i = 13 tridecagon
-                                                        'i = 14 tetradecagon
-                                                        'i = 15 pentadecagon
-    i := 319
+    x := 319
     repeat
 
-      if i <> 319
-        gr.pointcolor(1)
-        gr.line(i,0,i,380)
-        waitcnt(cnt + 200_000)
-        gr.pointcolor(0)
-        gr.line(i,0,i,380)
-      else
-        i := 00
 
-      if i // 32 == 0
+      if x <> 319
+        gr.pointcolor(1)
+        gr.line(x,0,x,380)
+        waitcnt(cnt + 1_000_000)
+        gr.pointcolor(0)
+        gr.line(x,0,x,380)
+
+        if x < (319 - 32)
+          gr.line(x+32,0,x+32,380)
+        else
+          gr.line(x-(319-32),0,x-(319-32),380)
+
+      else
+        x := 00
+
+      'scroll the colours in the background every time the line hits a new tile
+      if x // 32 == 0
         wordmove(colors_ptr+2,colors_ptr,tiles - 1)
         word[colors_ptr] := word[colors_ptr][10]
 
-{
-        repeat y from 0 to 14
-          repeat x from 0 to 9
-            case x
-              0..3  : gr.color(y*10+x+((i/32) & 15),$FF00 + x << 2)
-              4..5  : gr.color(y*10+x+((i/32) & 15),$FF00 + (x - 3) << 4 + $2 << 2)
-              6     : gr.color(y*10+x+((i/32) & 15),$FF00 + $1 << 6 + $3 << 4 + $1 << 2)
-              7     : gr.color(y*10+x+((i/32) & 15),$FF00 + $1 << 6 + $2 << 4 + $1 << 2)
-              8     : gr.color(y*10+x+((i/32) & 15),$FF00 + $3 << 6 + 2 << 4 + $0 << 2)
-              9     : gr.color(y*10+x+((i/32) & 15),$FF00 + $3 << 6 + 1 << 4 + $0 << 2)
-}
-      if i // 10 == 0
+      if x // 10 == 0
         gr.pointcolor(1)
-        gr.shape(160,120,90,90,3,gr.deg(i))
+        gr.shape(160,120,90,90,3,gr.deg(x))
 
         gr.shape(200,75,71,71,4,gr.deg(0))                  'draw a box
-        gr.plot(i,100)
-        if i <> 0
-          gr.shape(i-5,150,4,4,6,gr.deg(0))
-      i++
-{      repeat i from 0 to 359
-        gr.pointcolor(1)
-        gr.shape(256,192,145,145,3,gr.deg(i))
-        gr.shape(256,192,70,70,4,gr.deg(359-i*2))
-        gr.shape(256,192,30,30,5,gr.deg(i*3))
-        repeat 4000
-        gr.pointcolor(0)
-        gr.shape(256,192,145,145,3,gr.deg(i))
-        gr.shape(256,192,70,70,4,gr.deg(359-i*2))
-        gr.shape(256,192,30,30,5,gr.deg(i*3))
-}
+        gr.plot(x,100)
+        if x <> 0
+          gr.shape(x-5,150,4,4,6,gr.deg(0))
+
+      x++
+
