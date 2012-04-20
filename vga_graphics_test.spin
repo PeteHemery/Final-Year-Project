@@ -61,6 +61,14 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char
     repeat x from 0 to 14
       repeat y from 0 to 9
         case y
+          0..2  : gr.color(x*10+y,$00 + (y << 2) << 8)
+          3..4  : gr.color(x*10+y,$00 + ((y - 3) << 4 + $2 << 2) << 8)
+          5     : gr.color(x*10+y,$00 + ($1 << 6 + $3 << 4 + $1 << 2) << 8)
+          6     : gr.color(x*10+y,$00 + ($1 << 6 + $2 << 4 + $1 << 2) << 8)
+          7     : gr.color(x*10+y,$00 + ($3 << 6 + 2 << 4 + $0 << 2) << 8)
+          8     : gr.color(x*10+y,$00 + ($3 << 6 + 1 << 4 + $0 << 2) << 8)
+          9     : gr.color(x*10+y,$FF00)
+          {
           0..2  : gr.color(x*10+y,$FF00 + y << 2)
           3..4  : gr.color(x*10+y,$FF00 + (y - 3) << 4 + $2 << 2)
           5     : gr.color(x*10+y,$FF00 + $1 << 6 + $3 << 4 + $1 << 2)
@@ -68,6 +76,7 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char
           7     : gr.color(x*10+y,$FF00 + $3 << 6 + 2 << 4 + $0 << 2)
           8     : gr.color(x*10+y,$FF00 + $3 << 6 + 1 << 4 + $0 << 2)
           9     : gr.color(x*10+y,$FF00)
+          }
     {
     repeat i from 0 to tiles - 1                        'init tile colors to white on black
       gr.color(i,%%3100_0010)    'gold on blue
@@ -113,7 +122,7 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char
       if i <> 319
         gr.pointcolor(1)
         gr.line(i,0,i,380)
-        waitcnt(cnt + 1_000_000)
+        waitcnt(cnt + 200_000)
         gr.pointcolor(0)
         gr.line(i,0,i,380)
       else
@@ -140,6 +149,8 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char
 
         gr.shape(200,75,71,71,4,gr.deg(0))                  'draw a box
         gr.plot(i,100)
+        if i <> 0
+          gr.shape(i-5,150,4,4,6,gr.deg(0))
       i++
 {      repeat i from 0 to 359
         gr.pointcolor(1)
