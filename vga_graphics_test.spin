@@ -43,8 +43,9 @@ OBJ
 VAR
   long  pst_on
   long fft_real[1024]
+  long  colors_ptr
 
-PUB MainLoop|h,i,deg,x,y,mask,ii,char
+PUB MainLoop|i,j,deg,x,y,mask,ii,char
     if ina[31] == 1                            'Check if we're connected via USB
       pst_on := 1
       pst.Start(115200)             'Start the Parallax Serial Terminal cog
@@ -55,19 +56,29 @@ PUB MainLoop|h,i,deg,x,y,mask,ii,char
     gr.start
     gr.pointcolor(1)
 
-    repeat i from 0 to tiles - 1
-      gr.color(i,($FF00 + (i >> 4 & $3) << 6 + (i >> 2 & $3) << 4 + (i & $3) << 2))
+    colors_ptr := gr.get_colors_address
 
+    repeat x from 0 to 14
+      repeat y from 0 to 9
+        case y
+          0..2  : gr.color(x*10+y,$FF00 + y << 2)
+          3..4  : gr.color(x*10+y,$FF00 + (y - 3) << 4 + $2 << 2)
+          5     : gr.color(x*10+y,$FF00 + $1 << 6 + $3 << 4 + $1 << 2)
+          6     : gr.color(x*10+y,$FF00 + $1 << 6 + $2 << 4 + $1 << 2)
+          7     : gr.color(x*10+y,$FF00 + $3 << 6 + 2 << 4 + $0 << 2)
+          8     : gr.color(x*10+y,$FF00 + $3 << 6 + 1 << 4 + $0 << 2)
+          9     : gr.color(x*10+y,$FF00)
     {
     repeat i from 0 to tiles - 1                        'init tile colors to white on black
       gr.color(i,%%3100_0010)    'gold on blue
       'gr.color(i,$FF00)
       gr.color(i,$FF<<8+((i<<2) & $FF))                              'init tile colors "Nice view"
-      }
+'      gr.color(i,($FF00 + (i >> 4 & $3) << 6 + (i >> 2 & $3) << 4 + (i & $3) << 2)) 'every colour
+      }{
       pst.dec(i)
       pst.char(":")
       pst.hex($FF00 + ((i >> 4 & $3) << 6 + (i >> 2 & $3) << 4 + (i & $3) << 2),4)
-      pst.newline
+      pst.newline}
 '    gr.text(0,0,string("Parallax VGA text and graphics"))
 '    gr.SimpleNum(464,32,123,3)
 
@@ -98,16 +109,31 @@ PUB MainLoop|h,i,deg,x,y,mask,ii,char
                                                         'i = 15 pentadecagon
     i := 319
     repeat
-      if i <> 319
 
+      if i <> 319
         gr.pointcolor(1)
         gr.line(i,0,i,380)
-        repeat 2000
+        waitcnt(cnt + 1_000_000)
         gr.pointcolor(0)
         gr.line(i,0,i,380)
       else
         i := 00
 
+      if i // 32 == 0
+        wordmove(colors_ptr+2,colors_ptr,tiles - 1)
+        word[colors_ptr] := word[colors_ptr][10]
+
+{
+        repeat y from 0 to 14
+          repeat x from 0 to 9
+            case x
+              0..3  : gr.color(y*10+x+((i/32) & 15),$FF00 + x << 2)
+              4..5  : gr.color(y*10+x+((i/32) & 15),$FF00 + (x - 3) << 4 + $2 << 2)
+              6     : gr.color(y*10+x+((i/32) & 15),$FF00 + $1 << 6 + $3 << 4 + $1 << 2)
+              7     : gr.color(y*10+x+((i/32) & 15),$FF00 + $1 << 6 + $2 << 4 + $1 << 2)
+              8     : gr.color(y*10+x+((i/32) & 15),$FF00 + $3 << 6 + 2 << 4 + $0 << 2)
+              9     : gr.color(y*10+x+((i/32) & 15),$FF00 + $3 << 6 + 1 << 4 + $0 << 2)
+}
       if i // 10 == 0
         gr.pointcolor(1)
         gr.shape(160,120,90,90,3,gr.deg(i))

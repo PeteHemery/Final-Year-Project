@@ -88,7 +88,9 @@ CON'############################################################################
 '                               Spin Routines
 '################################################################################################################
 PUB color(tile,cval)            'Set Color tiles on VGA screen
-    colors[tile] := cval    
+    colors[tile] := cval
+PUB get_colors_address
+    return @colors
 PUB Text(offX,offY,Address)|chr,i                       'Place a text string from the ROM table at offset location offsetX,offsetY
     i := 0
     repeat 
