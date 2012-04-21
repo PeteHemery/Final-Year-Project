@@ -64,16 +64,18 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
     repeat x from 0 to 14
       repeat y from 0 to 9
         case y
-        {
+
           'colourful foreground
-          0..3  : gr.color(x*10+y,$00 + (y << 2) << 8)
+          0     : gr.color(x*10+y,$FF00)
+          1..3  : gr.color(x*10+y,$00 + (y << 2) << 8)
           4     : gr.color(x*10+y,$00 + ($1 << 4 + $2 << 2) << 8)
-          5     : gr.color(x*10+y,$00 + ($1 << 6 + $3 << 4 + $1 << 2) << 8)
-          6     : gr.color(x*10+y,$00 + ($1 << 6 + $2 << 4 + $1 << 2) << 8)
+          5     : gr.color(x*10+y,$00 + ($1 << 6 + $2 << 4 + $1 << 2) << 8)
+          6     : gr.color(x*10+y,$00 + ($1 << 6 + $3 << 4 + $1 << 2) << 8)
           7     : gr.color(x*10+y,$00 + ($3 << 6 + $2 << 4 + $0 << 2) << 8)
           8     : gr.color(x*10+y,$00 + ($3 << 6 + $1 << 4 + $0 << 2) << 8)
-          9     : gr.color(x*10+y,$FF00)
-          }
+          9     : gr.color(x*10+y,$00 + ($3 << 6 + $0 << 4 + $0 << 2) << 8)
+          '9     : gr.color(x*10+y,$FF00)
+{
           'colourful background
           0..3  : gr.color(x*10+y,$FF00 + y << 2)
           4     : gr.color(x*10+y,$FF00 + $1 << 4 + $2 << 2)
@@ -81,65 +83,78 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
           6     : gr.color(x*10+y,$FF00 + $1 << 6 + $3 << 4 + $1 << 2)
           7     : gr.color(x*10+y,$FF00 + $3 << 6 + $2 << 4 + $0 << 2)
           8     : gr.color(x*10+y,$FF00 + $3 << 6 + $1 << 4 + $0 << 2)
-          9     : gr.color(x*10+y,$FF00)
+          9     : gr.color(x*10+y,$FF00 + $3 << 6 + $0 << 4 + $0 << 2)
+          '9     : gr.color(x*10+y,$FF00)
+}
 
-    x := 319
+
+    gr.pointcolor(1)
+    repeat i from 0 to 4
+      gr.line(0,70+(i*20),320,70+(i*20))
+
+    x := 11
     sharps := notes := 1
     repeat
-
-
-      if x < 319
+      'clear the pixels 10 spaces in front of the drawing line
+      gr.pointcolor(0)
+      if x < 310
+        gr.line(x+10,0,x+10,240)
         gr.pointcolor(1)
-        gr.line(x,0,x,240)
-        waitcnt(cnt + 1_000_000)
-        gr.pointcolor(0)
-        gr.line(x,0,x, 240)
-
-        if x < 299
-          gr.line(x+20,0,x+20,240)
-          gr.pointcolor(1)
-          repeat i from 0 to 4
-            gr.plot(x+20,70+(i*20))
-        else
-          gr.line(x-300,0,x-300,240)
-          gr.pointcolor(1)
-          repeat i from 0 to 4
-            gr.plot(x-300,70+(i*20))
-
+        repeat i from 0 to 4
+          gr.plot(x+10,70+(i*20))
       else
+        gr.line(x-310,0,x-310,240)
+        gr.pointcolor(1)
+        repeat i from 0 to 4
+          gr.plot(x-310,70+(i*20))
+
+      'draw the scrolling line
+      if x == 320
         x := 10
 
+      gr.pointcolor(1)
+      gr.line(x,0,x,240)
+      waitcnt(cnt + 1_000_000)
+      gr.pointcolor(0)
+      gr.line(x,0,x, 240)
 
-      if x // 10 == 0
+
+      'scroll the colours in the background every time the line hits a new tile
+      if x // 32 == 0 OR x == 10
+        wordmove(colors_ptr+2,colors_ptr,tiles - 1)
+        word[colors_ptr] := word[colors_ptr][10]
+
 
       'notes
-        gr.pointcolor(1)
-        repeat i from 0 to 22
-          if notes & (1 << i) <> 0
-            gr.shape(x-5,230-(i*10),4,4,6,gr.deg(0))
-            if i // 2 == 0
-              gr.line(x,230-(i*10),x-10,230-(i*10))
+      gr.pointcolor(1)
+      repeat i from 0 to 22
+        if notes & (1 << i) <> 0
+          gr.shape(x-5,230-(i*10),4,4,6,gr.deg(0))
+          if i // 2 == 0
+            gr.line(x,230-(i*10),x-10,230-(i*10))
 
-        if notes == $80_0000
-          notes := 1
-        else
-          notes <<= 1
+      if notes == $80_0000
+        notes := 1
+      else
+        'notes <<= 1
+        notes++
+
       'sharps
-        repeat i from 0 to 15
-          temp := i / 5
-          if sharps & (1 << i) <>0
-            gr.pointcolor(1)
-            gr.shape(x-5,225-((i/5)*70)-sharp_offsets[i//5],4,4,4,gr.deg(45))
+      repeat i from 0 to 15
+        if sharps & (1 << i) <> 0
+          gr.pointcolor(1)
+          gr.shape(x-5,225-((i/5)*70)-sharp_offsets[i//5],4,4,4,gr.deg(45))
 
-        if sharps == $8000
-          sharps := 1
-        else
-          sharps <<= 1
-
+      if sharps == $8000
+        sharps := 1
+      else
+        sharps <<= 1
+        'sharps++
 
       gr.pointcolor(1)
       repeat i from 0 to 4
         gr.plot(x,70+(i*20))
+
       x++
 
 DAT
