@@ -28,15 +28,7 @@ CON
   attenuation = 0               'try 0-4
 
   KHz = 6                       'max 13 with 2 FFTs (for which filtering must be off)
-  filtering = 0                 'turn off for different sample rates than provided
 
-OBJ
-'' Uncomment relevant object for Finite Impulse Response Low-Pass filtering with 1.5 KHz cut off
-
-'  fir : "fir_filter_4k"
-'  fir : "fir_filter_5k"
-  fir : "fir_filter_6k"
-'  fir : "fir_filter_7k"
 
 VAR
   long  cog                                             'Cog flag/id

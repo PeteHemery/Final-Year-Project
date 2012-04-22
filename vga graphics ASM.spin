@@ -15,6 +15,7 @@ Version 1.1 - Optimized Nested Assembly routines and reduced variable overhead
 
 CON
   tiles    = vga#xtiles * vga#ytiles
+'  tiles32  = tiles * 32
   tiles32  = tiles * 16 'orig 32
 
   #1, _Sine,_Cosine,_ArcSine,_Plot,_Point,_Character,_Line,_Box,_BoxFill,_PixelColor,_PixelAddress
@@ -465,6 +466,7 @@ Pixel_Core    cmps      PixelX, #0              wc      'Set 'C' if x < 0
               shl       temp,   #1
               shl       t1,     #3                      'Multiply 'y' by 10 -ph modified from 16 for 320x240 driver
               add       t1,     temp
+'              shl       t1,     #4                      'Multiply 'y' by 16
               mov       t2,     PixelX
               shr       t2,     #5                      'Divide 'x' by 32
               add       t1,     t2                      'Get title position

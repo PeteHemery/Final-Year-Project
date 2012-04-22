@@ -55,12 +55,13 @@ VAR
   long  pst_on
 
 
-PUB start | f, i, iten, freq, time, samples, screen_timeout
+PUB start | f, i, iten, freq, time, samples, screen_timeout, x, y
 
   long[@flag] := 0
 
   'start vga
   gui.start
+
   'start floating point engine
   F32.start
   'start filter impulse response engine

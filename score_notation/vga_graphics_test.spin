@@ -92,7 +92,7 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
     repeat i from 0 to 4
       gr.line(0,70+(i*20),320,70+(i*20))
 
-    x := 11
+    x := 11 'colours change on 32 bit boundary or when x = 10, since notes are drawn up to 10 px behind the scrolling line
     sharps := notes := 1
     repeat
       'clear the pixels 10 spaces in front of the drawing line
@@ -109,7 +109,7 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
           gr.plot(x-310,70+(i*20))
 
       'draw the scrolling line
-      if x == 320
+      if x > 319
         x := 10
 
       gr.pointcolor(1)
@@ -131,7 +131,7 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
         if notes & (1 << i) <> 0
           gr.shape(x-5,230-(i*10),4,4,6,gr.deg(0))
           if i // 2 == 0
-            gr.line(x,230-(i*10),x-10,230-(i*10))
+            gr.line(x-2,230-(i*10),x-8,230-(i*10))
 
       if notes == $80_0000
         notes := 1
