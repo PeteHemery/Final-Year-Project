@@ -24,7 +24,7 @@ CON
 
 'Modify constants below for behaviour changes.
 
-  averaging =13                '2-power-n samples to compute average with
+  averaging = 11                '2-power-n samples to compute average with
   attenuation = 0               'try 0-4
 
   KHz = 6                       'max 13 with 2 FFTs (for which filtering must be off)
@@ -32,7 +32,6 @@ CON
 
 VAR
   long  cog                                             'Cog flag/id
-  long  fir_busy,fir_data
 
 PUB start (flagptr): okay
 {{
@@ -41,10 +40,6 @@ PUB start (flagptr): okay
           Depending on the value of the filtering constant, FIR low pass filter may be applied.
 }}
 
-  if(filtering == 1)
-    asm_fir_busy := @fir_busy
-    asm_fir_data := @fir_data
-    fir.start(@fir_busy)
   stop
   okay := cog := cognew(@asm_entry, flagptr) + 1 'launch assembly program into a COG, store the cog id and return it
 
@@ -66,43 +61,16 @@ asm_entry     mov       dira,asm_dira                   'make pin 8 (ADC) output
               movi      ctra,#%01001_000
               mov       frqa,#1                         'microphone now setup
 
-'              cogid     cog_id
-
               mov       in_ptr,PAR                      'get the address of the first hub ram pointer
-              movd      :patch,#asm_flag_ptr            'patch the rdlong instruction with the address of cog ram
-              rdlong    asm_flag_ptr,in_ptr             'setup loop counter
-              rdlong    t1,asm_flag_ptr                 'number of parameters stored in flag pointer
+              mov       asm_flag_ptr,in_ptr             'setup loop counter
+              add       in_ptr,#4
+              mov       asm_time_ptr,in_ptr
+              add       in_ptr,#4
+              rdlong    asm_array_size,in_ptr
+              add       in_ptr,#4
+              mov       asm_buffer_ptr,in_ptr
 
-              mov       t2,t1                           'copy number of params
-              sub       t2,#3                           'remove required params
-              shr       t2,#1                           'how many ffts
-              mov       number_of_ffts,t2
-              mov       t3,#4                           'work out how many cog longs to jump
-              sub       t3,t2                           '4-num_of_ffts=number of cells to jump
-              add       t2,#1                           'trigger at the correct iteration below
-
-              wrlong    t3,asm_flag_ptr
-              shl       t3,#9                           'set for destination field of :patch instruction
-
-:rdloop
-:patch        rdlong    0-0,in_ptr
-              add       :patch,d0  'increment destination operand by 1 / point at next cog long
-
-              cmp       t1,t2   wz
-        if_z  add       :patch,t3  'skip unused pointer locations
-
-              add       in_ptr,#4  'set to read next long from hub ram, giving time for fetch/execute of updated :patch long
-              djnz      t1,#:rdloop
-
-'if using a single cog, write to audio buffer instead of directly to fft buffer
-'              cmp       number_of_ffts,#1       wz
-'if_z          add       asm_buffer1_ptr,#asm_array_size * 4
-'if_z          sub       asm_fft1_ptr,#4
-
-
-              mov       buffer_number,#0
-              mov       fft_ptr,asm_fft1_ptr             'use fft_ptr as relevent flag pointer
-              mov       in_ptr,asm_buffer1_ptr           'use in_ptr as input for the array
+              rdlong    asm_flag,asm_flag_ptr
 
               sub       asm_array_size,#1               'more convenient for checking for end of array
 
@@ -115,17 +83,6 @@ loop          waitcnt   asm_cnt,asm_cycles              'wait for next CNT value
               sub       asm_sample,asm_old
               add       asm_old,asm_sample
 
-'Filtering
-              cmp       filterswitch,#0         wz
-if_z          jmp       #:avejump
-
-              wrlong    asm_sample,asm_fir_data
-              mov       t1,#1
-              wrlong    t1,asm_fir_busy
-
-:fir_loop     rdlong    t1,asm_fir_busy
-              tjnz      t1,#:fir_loop
-              rdword    asm_sample,asm_fir_data
 
 'Averaging
 :avejump      add       average,asm_sample              'compute average periodically so that
@@ -136,85 +93,44 @@ if_z          jmp       #:avejump
               mov       average,#0                      'reset average for next averaging
 :avgsame
 
-              max       peak_min,asm_sample             'track min and max peaks for triggering
-              min       peak_max,asm_sample
-              djnz      peak_cnt,#:pksame
-              mov       peak_cnt,peak_load
-              mov       x,peak_max                      'compute min+12.5% and max-12.5%
-              sub       x,peak_min
-              shr       x,#3
-              mov       trig_min,peak_min
-              add       trig_min,x
-              mov       trig_max,peak_max
-              sub       trig_max,x
-              mov       peak_min,bignum                 'reset peak detectors
-              mov       peak_max,#0
-:pksame
 
-'Save data and pick next buffer, if need be
+:justify
+              sub       asm_sample,asm_justify          'justify sample to bitmap center y
+              sar       asm_sample,#attenuation         'this # controls attenuation (0=none)
+
+
+'Save data to buffer
               wrword    asm_sample,in_ptr               'write sample to fft array
-              add       in_ptr,#2
-              add       array_offset,#1                 'keep count of how far into the array we are
+              add       in_ptr,#2                       'point to next word location
+
+              djnz      peak_cnt,#loop
+              mov       peak_cnt,peak_load
+
+              'Let caller know every 512 samples
+              cmp       asm_flag,#3             wc
+
+if_nc         mov       asm_flag,#0
+if_nc         mov       in_ptr,asm_buffer_ptr           'cog cell holding buffer address.
+
+if_c          add       asm_flag,#1
+
+              mov       t1,cnt
+
+              wrlong    asm_flag,asm_flag_ptr
+              wrlong    t1,asm_time_ptr                 'tell caller how long I took
+
+:pksame
 
               cmp       array_offset,asm_array_size     wz
         if_nz jmp       #loop                           'wait for next sample period
 
-              mov       array_offset,#0                 'reset array offset
-              wrlong    zero,fft_ptr                    'trigger fft to go
 
-              mov       t1,cnt
-              wrlong    t1,asm_time_ptr                 'tell caller how long I took
-
-              cmp       number_of_ffts,#1       wz      'if there's only one, jump round the loop again
-        if_nz jmp       #find_free_buf
-
-              add       one,#1
-              wrlong    one,asm_flag_ptr                'let outside object know buffer in use via the flag
-              mov       in_ptr,asm_buffer1_ptr          'cog cell holding 1st buffer
-
-waiting       rdlong    t1,fft_ptr                      'wait until flag is not 0 before looping again
-              cmp       t1,#0                   wz
-    if_z      jmp       #waiting
-              jmp       #end_time
-
-'''''''''''''''''
-' Check which buffer has non 0 flag value and write to it next
-
-find_free_buf add       buffer_number,#1                'set the next buffer number
-              cmp       buffer_number,number_of_ffts    wz
-        if_z  mov       buffer_number,#0
-
-              mov       in_ptr,#asm_fft1_ptr            'cog cell holding 1st flag address
-              add       in_ptr,buffer_number            'move to relevent cell
-              movs      read_flag,in_ptr                'patch the move instruction below
-              nop                                       'wait for above instruction to propagate
-read_flag     mov       fft_ptr,0-0
-              rdlong    t1,fft_ptr              wz      'read the cog cell that has the current fft flag address
-        if_z  jmp       #find_free_buf                  'go for the next buffer if this one has 0 in the flag
-
-              mov       in_ptr,#asm_buffer1_ptr         'cog cell holding 1st buffer address
-              mov       t1,buffer_number
-              add       in_ptr,t1                       'point at cog cell holding fft buffer address
-
-              movs      get_buf_ptr,in_ptr              'patch the move instruction below
-
-              add       one,#1
-              wrlong    one,asm_flag_ptr                'let outside object know how many samples we've taken
-'              wrlong    buffer_number,asm_flag_ptr      'let outside object know buffer in use via the flag
-
-get_buf_ptr   mov       in_ptr,0-0                      'reset input to the relevent array
-
-end_time      mov       asm_cnt,cnt
-              wrlong    asm_cnt,asm_time_ptr            'tell caller how long I took
-              add       asm_cnt,asm_cycles
               jmp       #loop
 
 '
 ' Data
 '
 array_offset            long    0
-array_end               long    0
-cog_id                  long    0
 
 in_ptr                  long    0
 t1                      long    0
@@ -227,7 +143,7 @@ one                     long    1
 d0                      long    1 << 9
 
 'asm_cycles    long      |< bits - 1                     'sample time
-asm_cycles    long      sample_rate - 1                 'sample time
+asm_cycles    long      sample_rate                     'sample time
 asm_dira      long      $00000200                       'output mask
 average_cnt   long      1
 peak_cnt      long      1
@@ -235,35 +151,20 @@ peak_load     long      512
 average_load  long      |< averaging
 bignum        long      $FFFFFFFF
 
-number_of_ffts          long    0
-fft_ptr                 long    0               'relevent flag pointer
+asm_flag                long    0               'relevent flag pointer
 
 asm_flag_ptr            long    0
 asm_time_ptr            long    0
 asm_array_size          long    0
 
-asm_fft1_ptr            long    0
-asm_fft2_ptr            long    0
-asm_fft3_ptr            long    0
-asm_fft4_ptr            long    0
-asm_buffer1_ptr         long    0
-asm_buffer2_ptr         long    0
-asm_buffer3_ptr         long    0
-asm_buffer4_ptr         long    0
+asm_buffer_ptr          long    0
 
-asm_fir_busy            long    0
-asm_fir_data            long    0
-filterswitch            long    filtering
 
 asm_cnt                 res     1
 asm_old                 res     1
 asm_sample              res     1
-trig_min                res     1
-trig_max                res     1
 average                 res     1
 asm_justify             res     1
-peak_min                res     1
-peak_max                res     1
 x                       res     1
 
 {{
