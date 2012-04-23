@@ -150,7 +150,7 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
 
       notes := sharps := 0
 
-      repeat x from 24 to 226
+      repeat x from 24 to 500
         if ||bx[x] > 1000
 
           case x
@@ -227,8 +227,9 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
       pst.hex(sharps,4)
       pst.newline
 
+      notes |= $8000
       'Print resulting spectrum
-'      printSpectrum
+      'printSpectrum
       longfill(@bx,0,fft#FFT_SIZE*2)
 {
       pst.str(string("1024 point FFT plus magnitude calculation run time = "))
