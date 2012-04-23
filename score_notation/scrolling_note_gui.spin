@@ -38,23 +38,16 @@ CON
   tiles = gr#tiles
 OBJ
   gr    : "vga graphics ASM"
-  pst   : "Parallax Serial Terminal"                   ' Serial communication object
 
 VAR
-  long  pst_on
-  long fft_real[1024]
+  long  plot_flag
   long  colors_ptr
 
-  word  sharps
   long  notes
+  word  sharps
 
 PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
-    if ina[31] == 1                            'Check if we're connected via USB
-      pst_on := 1
-      pst.Start(115200)             'Start the Parallax Serial Terminal cog
-      pst.NewLine
-    else
-      pst_on := 0
+
 
     gr.start
     gr.pointcolor(1)
@@ -74,18 +67,6 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
           7     : gr.color(x*10+y,$00 + ($3 << 6 + $2 << 4 + $0 << 2) << 8)
           8     : gr.color(x*10+y,$00 + ($3 << 6 + $1 << 4 + $0 << 2) << 8)
           9     : gr.color(x*10+y,$00 + ($3 << 6 + $0 << 4 + $0 << 2) << 8)
-          '9     : gr.color(x*10+y,$FF00)
-{
-          'colourful background
-          0     : gr.color(x*10+y,$FF00)
-          1..3  : gr.color(x*10+y,$FF00 + y << 2)
-          4     : gr.color(x*10+y,$FF00 + $1 << 4 + $2 << 2)
-          5     : gr.color(x*10+y,$FF00 + $1 << 6 + $2 << 4 + $1 << 2)
-          6     : gr.color(x*10+y,$FF00 + $1 << 6 + $3 << 4 + $1 << 2)
-          7     : gr.color(x*10+y,$FF00 + $3 << 6 + $2 << 4 + $0 << 2)
-          8     : gr.color(x*10+y,$FF00 + $3 << 6 + $1 << 4 + $0 << 2)
-          9     : gr.color(x*10+y,$FF00 + $3 << 6 + $0 << 4 + $0 << 2)
-}
 
 
     gr.pointcolor(1)
@@ -108,10 +89,11 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
         repeat i from 0 to 4
           gr.plot(x-310,70+(i*20))
 
-      'draw the scrolling line
+
       if x > 319
         x := 10
 
+      'draw the scrolling line
       gr.pointcolor(1)
       gr.line(x,0,x,240)
       waitcnt(cnt + 1_000_000)
