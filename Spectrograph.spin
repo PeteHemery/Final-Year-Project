@@ -105,14 +105,20 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, audio_time, audio_max
 '' w(0) = 0.54 + 0.46 cos (2πn / N - 1)
   pst.Str(String(pst#NL,"Start"))
 
-  repeat i from 0 to fft#NN -1
+  repeat i from 0 to (fft#NN / 2) -1
     long[@hamming_window][i] := F32.FSub(F32.FDiv(F32.FFloat(54),F32.FFloat(100)),F32.FMul(F32.FDiv(F32.FFloat(46),F32.FFloat(100)),F32.cos(F32.FDiv(F32.FMul(F32.FMul(F32.FFloat(2),pi),F32.FFloat(i)),F32.FFloat(fft#NN-1)))))
-{    pst.dec(i)
-    pst.char(":")
-    pst.char(" ")
-    pst.dec(F32.FRound(F32.FMul(long[@hamming_window][i],F32.FFloat(1000))))
-    pst.newline
+
+{    if i // 16 == 0
+      pst.str(string(pst#NL,"        word  "))
+    else
+      pst.str(string(", "))
+'    pst.dec(i)
+'    pst.char(":")
+'    pst.char(" ")
+    pst.dec(F32.FRound(F32.FMul(long[@hamming_window][i],F32.FFloat(1024))))
+    'pst.newline
 }
+  repeat
 
   if pst_on
     pst.Str(String(pst#NL,"Start"))
