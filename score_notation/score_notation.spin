@@ -11,6 +11,8 @@ CON
 
   fft_size = fft#FFT_SIZE
 
+  threshold = 800
+
 OBJ
 
   fft  : "heater_fft_hamming"
@@ -145,13 +147,13 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
 
       'The Fourier transform, including bit-reversal reordering and magnitude converstion
       startTime := cnt
-      fft.butterflies(fft#CMD_DECIMATE | fft#CMD_BUTTERFLY , @bx, @by)'| fft#CMD_HAMMING | fft#CMD_MAGNITUDE
+      fft.butterflies(fft#CMD_DECIMATE | fft#CMD_BUTTERFLY | fft#CMD_MAGNITUDE, @bx, @by)'| fft#CMD_HAMMING
       endTime := cnt
 
       notes := sharps := 0
 
-      repeat x from 24 to 500
-        if ||bx[x] > 1000
+      repeat x from 24 to 495
+        if ||bx[x] > threshold        'absolute value
 
           case x
             24       : notes  |= ($1 << 0)               'D3

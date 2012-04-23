@@ -36,6 +36,9 @@ CON
 
   '512x384
   tiles = gr#tiles
+
+  scroll_speed = 5_000_000
+
 OBJ
   gr    : "vga graphics ASM"
 
@@ -104,7 +107,7 @@ PUB GUI_loop | i,j,x,y
       'draw the scrolling line
       gr.pointcolor(1)
       gr.line(x,0,x,240)
-      waitcnt(cnt + 5_000_000)
+      waitcnt(cnt + scroll_speed)
       gr.pointcolor(0)
       gr.line(x,0,x, 240)
 
@@ -129,7 +132,6 @@ PUB GUI_loop | i,j,x,y
         repeat i from 0 to 21
           if sharps & (1 << i) <> 0
             gr.pointcolor(1)
-'            gr.shape(x-5,226-((i/5)*42)-sharp_offsets[i//5],1,1,4,gr.deg(45))
             gr.plot(x-5,226-((i/5)*49)-sharp_offsets[i//5])
 
 
