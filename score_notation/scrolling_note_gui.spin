@@ -64,6 +64,9 @@ PUB GUI_loop | i,j,x,y
 
     repeat x from 0 to 14
       repeat y from 0 to 9
+        gr.color(x*10+y,$00FF) 'black on white
+'        gr.color(x*10+y,$FF00) 'white on black
+{
         case y
 
           'colourful foreground
@@ -75,7 +78,7 @@ PUB GUI_loop | i,j,x,y
           7     : gr.color(x*10+y,$00 + ($3 << 6 + $2 << 4 + $0 << 2) << 8)
           8     : gr.color(x*10+y,$00 + ($3 << 6 + $1 << 4 + $0 << 2) << 8)
           9     : gr.color(x*10+y,$00 + ($3 << 6 + $0 << 4 + $0 << 2) << 8)
-
+}
 
     gr.pointcolor(1)
     repeat i from 0 to 4

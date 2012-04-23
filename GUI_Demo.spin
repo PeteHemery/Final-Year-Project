@@ -43,7 +43,7 @@ VAR
 
 PUB start | i, cents, x, y
 
-
+{
   gr.start
   gr.pointcolor(1)
   repeat x from 0 to 14
@@ -62,8 +62,8 @@ PUB start | i, cents, x, y
 
   repeat i from 0 to 4
     gr.line(0,70+(i*20),320,70+(i*20))
-
-'  vga_text.start(basepin)
+}
+  vga_text.start(basepin)
 
   arrow_pos := 5
 
@@ -78,12 +78,12 @@ PUB start | i, cents, x, y
 }
 PUB update(oct,note1,note2,cent,freq)
 
-  gr.pointcolor(1)
-  gr.line(arrow_pos,0,arrow_pos,240)
-  arrow_pos++
+'  gr.pointcolor(1)
+'  gr.line(arrow_pos,0,arrow_pos,240)
+{  arrow_pos++
   if arrow_pos > 300
     arrow_pos := 5
-
+}
   show_cents(cent)
   show_percent(cent)
   show_octave(oct)
@@ -98,7 +98,7 @@ PUB reset_display
 
   show_headings
   show_scale
-{
+
   vga_text.out(X_SELECT)
   vga_text.out(0)
   vga_text.out(Y_SELECT)
@@ -110,13 +110,13 @@ PUB reset_display
   vga_text.out(Y_SELECT)
   vga_text.out(12)
   vga_text.str(string("                               "))
-}
+
 
 
 PRI show_headings
 
-  gr.text(100,100,string("hi"))
-{
+  'gr.text(100,100,string("hi"))
+
   vga_text.out(COLOUR_SELECT)
   vga_text.out(white)
   vga_text.out(Y_SELECT)
@@ -151,19 +151,19 @@ PRI show_headings
   vga_text.out(X_SELECT)
   vga_text.out(22)
   vga_text.str(string("Frequency"))
-}
+
 
 PRI show_octave(octave)
-{
+
   vga_text.out(Y_SELECT)
   vga_text.out(6)
   vga_text.out(X_SELECT)
   vga_text.out(4)
   vga_text.dec(octave)
   vga_text.out(" ")
-}
+
 PRI show_note(note1,note2)
-{
+
   vga_text.out(Y_SELECT)
   vga_text.out(6)
   vga_text.out(X_SELECT)
@@ -171,7 +171,7 @@ PRI show_note(note1,note2)
 
   vga_text.out(note1)
   vga_text.out(note2)
-}
+
 {  if note == 0
     vga_text.str(string("C "))
   elseif note == 1
@@ -198,7 +198,7 @@ PRI show_note(note1,note2)
     vga_text.str(string("B "))
 }
 PRI show_percent(percent)
-{
+
   vga_text.out(Y_SELECT)
   vga_text.out(6)
   vga_text.out(X_SELECT)
@@ -206,9 +206,9 @@ PRI show_percent(percent)
   vga_text.dec(percent)
   vga_text.out(" ")
   vga_text.out(" ")
-}
+
 PRI show_frequency(frequency)
-{
+
   vga_text.out(Y_SELECT)
   vga_text.out(6)
   vga_text.out(X_SELECT)
@@ -221,14 +221,16 @@ PRI show_frequency(frequency)
   if (frequency//100) > 0
     vga_text.dec(frequency//100)
     vga_text.out(" ")
+  else
+    vga_text.str(string("   "))
 
     vga_text.out(X_SELECT)
     vga_text.out(29)
 
     vga_text.str(string("Hz"))
-}
+
 PRI show_scale
-{
+
   vga_text.out(Y_SELECT)
   vga_text.out(9)
 
@@ -254,8 +256,8 @@ PRI show_scale
   vga_text.out(5)
   repeat 11
     vga_text.str(string("│ "))
-}
-{PRI refresh_scale(cent)
+
+PRI refresh_scale(cent)
 
   vga_text.out(COLOUR_SELECT)
   vga_text.out(white)
@@ -268,9 +270,13 @@ PRI show_scale
   repeat 19
     vga_text.str(string("┬"))
   vga_text.str(string("┐"))
-}
+
+  vga_text.out(X_SELECT)
+  vga_text.out(arrow_pos)
+  vga_text.out(" ")
+
 PRI show_cents(cents) | variable_colour
-{
+
   vga_text.out(Y_SELECT)
   vga_text.out(12)
 
@@ -299,7 +305,7 @@ PRI show_cents(cents) | variable_colour
   vga_text.out(X_SELECT)
   vga_text.out(arrow_pos)
   vga_text.out("")
-}
+
 
 {{
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐

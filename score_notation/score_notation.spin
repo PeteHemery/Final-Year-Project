@@ -11,7 +11,7 @@ CON
 
   fft_size = fft#FFT_SIZE
 
-  threshold = 800
+  threshold = 2000
 
 OBJ
 
@@ -80,13 +80,13 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
       pst.str(string(pst#NL,"main loop wait time = "))
       pst.dec((endTime - startTime) / (clkfreq / 1000))
       pst.str(string("ms",pst#NL))
-{
+
 
       pst.str(string("sampler cog 512 samples run time = "))
       pst.dec((audio_endTime - audio_startTime) / (clkfreq / 1000))
       pst.str(string("ms",pst#NL))
       audio_startTime := audio_endTime
-}
+
       pst.dec(flag_copy)
       pst.newline
       pst.dec(word[@audio_time])
@@ -152,7 +152,8 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
 
       notes := sharps := 0
 
-      repeat x from 24 to 495
+'      repeat x from 24 to 495   'full range
+      repeat x from 41 to 226   'kalimba range
         if ||bx[x] > threshold        'absolute value
 
           case x
@@ -222,22 +223,22 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
 }
       'if notes <> 0 OR sharps <> 0
       gr.copy_notes(notes,sharps)
-      pst.str(string("notes: "))
+      pst.str(string("notes:  "))
       pst.hex(notes,8)
       pst.newline
       pst.str(string("sharps: "))
-      pst.hex(sharps,4)
+      pst.hex(sharps,8)
       pst.newline
 
       notes |= $8000
       'Print resulting spectrum
       'printSpectrum
       longfill(@bx,0,fft#FFT_SIZE*2)
-{
+
       pst.str(string("1024 point FFT plus magnitude calculation run time = "))
       pst.dec((endTime - startTime) / (clkfreq / 1000))
       pst.str(string("ms",pst#NL))
-}
+
       startTime := cnt
 
 
