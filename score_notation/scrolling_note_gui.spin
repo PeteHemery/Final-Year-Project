@@ -43,13 +43,18 @@ VAR
   long  plot_flag
   long  colors_ptr
 
-  long  notes
-  word  sharps
+  long  stack[40]
 
-PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
+  long  notes, sharps
+
+PUB start
+
+  gr.start
+  notes := sharps := plot_flag := 0
+  cognew(GUI_Loop,@stack)
 
 
-    gr.start
+PUB GUI_loop | i,j,x,y
     gr.pointcolor(1)
 
     colors_ptr := gr.get_colors_address
@@ -76,6 +81,7 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
     x := 11 'colours change on 32 bit boundary or when x = 10, since notes are drawn up to 10 px behind the scrolling line
     sharps := notes := 1
     repeat
+
       'clear the pixels 10 spaces in front of the drawing line
       gr.pointcolor(0)
       if x < 310
@@ -89,14 +95,15 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
         repeat i from 0 to 4
           gr.plot(x-310,70+(i*20))
 
-
+      'if the line reaches the edge of the screen reset its position to 10
+      'notes and sharps are drawing up to 10 pixels to the left of the line
       if x > 319
         x := 10
 
       'draw the scrolling line
       gr.pointcolor(1)
       gr.line(x,0,x,240)
-      waitcnt(cnt + 1_000_000)
+      waitcnt(cnt + 50_000)
       gr.pointcolor(0)
       gr.line(x,0,x, 240)
 
@@ -109,35 +116,31 @@ PUB MainLoop|i,j,deg,x,y,mask,ii,char,temp
 
       'notes
       gr.pointcolor(1)
-      repeat i from 0 to 22
-        if notes & (1 << i) <> 0
-          gr.shape(x-5,230-(i*10),4,4,6,gr.deg(0))
-          if i // 2 == 0
-            gr.line(x-2,230-(i*10),x-8,230-(i*10))
-
-      if notes == $80_0000
-        notes := 1
-      else
-        'notes <<= 1
-        notes++
+'      if notes <> 0
+        repeat i from 0 to 22
+          if notes & (1 << i) <> 0
+            gr.shape(x-5,230-(i*10),4,4,6,gr.deg(0))
+            if i // 2 == 0
+              gr.line(x-2,230-(i*10),x-8,230-(i*10))
 
       'sharps
-      repeat i from 0 to 15
-        if sharps & (1 << i) <> 0
-          gr.pointcolor(1)
-          gr.shape(x-5,225-((i/5)*70)-sharp_offsets[i//5],4,4,4,gr.deg(45))
+'      if sharps <> 0
+        repeat i from 0 to 15
+          if sharps & (1 << i) <> 0
+            gr.pointcolor(1)
+            gr.shape(x-5,225-((i/5)*70)-sharp_offsets[i//5],2,2,4,gr.deg(45))
 
-      if sharps == $8000
-        sharps := 1
-      else
-        sharps <<= 1
-        'sharps++
 
       gr.pointcolor(1)
       repeat i from 0 to 4
         gr.plot(x,70+(i*20))
 
       x++
+
+PUB copy_notes(notes_in, sharps_in)
+  notes := notes_in
+  sharps := sharps_in
+
 
 DAT
 sharp_offsets byte      0, 20, 30, 40, 60

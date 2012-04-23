@@ -15,7 +15,7 @@ OBJ
 
   fft  : "heater_fft_hamming"
   aud  : "sampler"
-  gr   : "vga graphics ASM"
+  gr   : "scrolling_note_gui"
   pst  : "Parallax Serial Terminal"
 
 VAR
@@ -23,8 +23,7 @@ VAR
   long  pst_on
   long  colors_ptr
 
-  long  notes
-  word  sharps
+  long  notes, sharps
 
   'cos and sin parts of the signal to be analysed
   'Result is written back to here.
@@ -54,40 +53,22 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
   else
     pst_on := 0
 
+  pst.str(string(pst#NL,"here"))
   gr.start
-  gr.pointcolor(1)
-
-  colors_ptr := gr.get_colors_address
-
-  repeat x from 0 to 14
-    repeat y from 0 to 9
-'      case y
-      gr.color(x*10+y,$FF00)
-{
-        'colourful foreground
-        0     : gr.color(x*10+y,$FF00)
-        1..3  : gr.color(x*10+y,$00 + (y << 2) << 8)
-        4     : gr.color(x*10+y,$00 + ($1 << 4 + $2audio_startTime << 2) << 8)
-        5     : gr.color(x*10+y,$00 + ($1 << 6 + $2 << 4 + $1 << 2) << 8)
-        6     : gr.color(x*10+y,$00 + ($1 << 6 + $3 << 4 + $1 << 2) << 8)
-        7     : gr.color(x*10+y,$00 + ($3 << 6 + $2 << 4 + $0 << 2) << 8)
-        8     : gr.color(x*10+y,$00 + ($3 << 6 + $1 << 4 + $0 << 2) << 8)
-        9     : gr.color(x*10+y,$00 + ($3 << 6 + $0 << 4 + $0 << 2) << 8)
-}
 
 
   audio_flag := 3               'will be set to 0 on initialisation
   array_size := fft#FFT_SIZE * 2
 
-
-  first_trigger := 5
+  first_trigger := 6
 
   fft.start(@fft_mailbox_cmd)
 
   aud.start(@audio_flag)
-  'Fill FFT Buffer
+
+
   repeat
-'    pst.str(string("here"))
+
     if flag_copy <> long[@audio_flag]
       flag_copy := long[@audio_flag]
       audio_endTime := long[@audio_time]
@@ -168,61 +149,77 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
       endTime := cnt
 
       notes := sharps := 0
-      gr.pointcolor(1)
+
       repeat x from 24 to 226
         if ||bx[x] > 1000
-          gr.shape(x,200-((||bx[x])/100),1,1,4,gr.deg(45))
 
           case x
-            24,25    : notes  |= ($1 << 0)               'D3
+            24       : notes  |= ($1 << 0)               'D3
             26       : sharps |=   ($1 << 0)               'D#
             27,28    : notes  |= ($1 << 1)               'E
             29       : notes  |= ($1 << 2)               'F
-            30,31    : sharps |=   ($1 << 1)               'F#
+            31       : sharps |=   ($1 << 1)               'F#
             32,33    : notes  |= ($1 << 3)               'G
             34,35    : sharps |=   ($1 << 2)               'G#
             36,37    : notes  |= ($1 << 4)               'A
-            38,39    : sharps |=   ($1 << 3)               'A#
-            40..42   : notes  |= ($1 << 5)               'B
+            39       : sharps |=   ($1 << 3)               'A#
+            41       : notes  |= ($1 << 5)               'B
 
             43..44   : notes  |= ($1 << 6)               'C4
-            45..47   : sharps |=   ($1 << 4)               'C#
-            48..50   : notes  |= ($1 << 7)               'D
-            51..53   : sharps |=   ($1 << 5)               'D#
-            54..56   : notes  |= ($1 << 8)               'E
-            57..59   : notes  |= ($1 << 9)               'F
-            60..63   : sharps |=   ($1 << 6)               'F#
-            64..67   : notes  |= ($1 << 10)              'G
-            68..71   : sharps |=   ($1 << 7)               'G#
-            72..75   : notes  |= ($1 << 11)              'A
-            76..79   : sharps |=   ($1 << 8)               'A#
-            80..84   : notes  |= ($1 << 12)              'B
+            47       : sharps |=   ($1 << 4)               'C#
+            49      : notes  |= ($1 << 7)               'D
+            52      : sharps |=   ($1 << 5)               'D#
+            55      : notes  |= ($1 << 8)               'E
+            58      : notes  |= ($1 << 9)               'F
+            61..62   : sharps |=   ($1 << 6)               'F#
+            65..66   : notes  |= ($1 << 10)              'G
+            69..70   : sharps |=   ($1 << 7)               'G#
+            73..74   : notes  |= ($1 << 11)              'A
+            77..78   : sharps |=   ($1 << 8)               'A#
+            81..82   : notes  |= ($1 << 12)              'B
 
-            85..89   : notes  |= ($1 << 13)              'C5
-            90..95   : sharps |=   ($1 << 9)               'C#
-            96..100  : notes  |= ($1 << 14)              'D
-            101..106 : sharps |=   ($1 << 10)              'D#
-            107..113 : notes  |= ($1 << 15)              'E
-            114..119 : notes  |= ($1 << 16)              'F
-            120..126 : sharps |=   ($1 << 11)              'F#
-            127..134 : notes  |= ($1 << 17)              'G
-            135..142 : sharps |=   ($1 << 12)              'G#
-            143..150 : notes  |= ($1 << 18)              'A
-            151..159 : sharps |=   ($1 << 13)              'A#
-            160..169 : notes  |= ($1 << 19)              'B
+            87       : notes  |= ($1 << 13)              'C5
+            92..93   : sharps |=   ($1 << 9)               'C#
+            98       : notes  |= ($1 << 14)              'D
+            103..104 : sharps |=   ($1 << 10)              'D#
+            109..110 : notes  |= ($1 << 15)              'E
+            116..117 : notes  |= ($1 << 16)              'F
+            123..124 : sharps |=   ($1 << 11)              'F#
+            130..131 : notes  |= ($1 << 17)              'G
+            138..139 : sharps |=   ($1 << 12)              'G#
+            146..147 : notes  |= ($1 << 18)              'A
+            155..156 : sharps |=   ($1 << 13)              'A#
+            164..166 : notes  |= ($1 << 19)              'B
 
-            170..179 : notes  |= ($1 << 20)              'C6
-            180..190 : sharps |=   ($1 << 14)              'C#
-            170..179 : notes  |= ($1 << 21)              'D
-            180..190 : sharps |=   ($1 << 15)              'D#
-            170..179 : notes  |= ($1 << 22)              'E
+            173..175 : notes  |= ($1 << 20)              'C6
+            184..186 : sharps |=   ($1 << 14)              'C#
+            195..197 : notes  |= ($1 << 21)              'D
+            206..209 : sharps |=   ($1 << 15)              'D#
+            219..221 : notes  |= ($1 << 22)              'E
 
+            232..234 : notes  |= ($1 << 23)              'F
+            245..248 : sharps |=   ($1 << 16)              'F#
+            260..263 : notes  |= ($1 << 24)              'G
+            276..278 : sharps |=   ($1 << 17)              'G#
+            292..295 : notes  |= ($1 << 25)              'A
+            309..312 : sharps |=   ($1 << 18)              'A#
+            328..331 : notes  |= ($1 << 26)              'B
+
+            347..350 : notes  |= ($1 << 27)              'C7
+            368..371 : sharps |=   ($1 << 19)              'C#
+            390..393 : notes  |= ($1 << 28)              'D
+            413..417 : sharps |=   ($1 << 20)              'D#
+            438..441 : notes  |= ($1 << 29)              'E
+            464..467 : notes  |= ($1 << 30)              'F
+            491..495 : sharps |=   ($1 << 21)              'F#
 {
           pst.dec(x)
           pst.char(":")
           pst.dec(||bx[x])
           pst.newline
 }
+      'if notes <> 0 OR sharps <> 0
+      gr.copy_notes(notes,sharps)
       pst.str(string("notes: "))
       pst.hex(notes,8)
       pst.newline
@@ -259,8 +256,8 @@ DAT
 'For testing define 16 samples  of an input wave form here.
 input long 4096, 3784, 2896, 1567, 0, -1567, -2896, -3784, -4096, -3784, -2896, -1567, 0, 1567, 2896, 3784
 
-hamming_window long  80, 80, 80, 80, 80, 80, 80, 80, 81, 81, 81, 81, 81, 81, 82, 82
-
+hamming_window
+        long  80, 80, 80, 80, 80, 80, 80, 80, 81, 81, 81, 81, 81, 81, 82, 82
         long  82, 83, 83, 83, 83, 84, 84, 85, 85, 85, 86, 86, 87, 87, 88, 88
         long  89, 89, 90, 91, 91, 92, 92, 93, 94, 95, 95, 96, 97, 97, 98, 99
         long  100, 101, 102, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114
@@ -324,3 +321,50 @@ hamming_window long  80, 80, 80, 80, 80, 80, 80, 80, 81, 81, 81, 81, 81, 81, 82,
         long  99, 98, 97, 97, 96, 95, 95, 94, 93, 92, 92, 91, 91, 90, 89, 89
         long  88, 88, 87, 87, 86, 86, 85, 85, 85, 84, 84, 83, 83, 83, 83, 82
         long  82, 82, 81, 81, 81, 81, 81, 81, 80, 80, 80, 80, 80, 80, 80, 80
+
+
+{
+          case x
+            24,25    : notes  |= ($1 << 0)               'D3
+            26       : sharps |=   ($1 << 0)               'D#
+            27,28    : notes  |= ($1 << 1)               'E
+            29       : notes  |= ($1 << 2)               'F
+            30,31    : sharps |=   ($1 << 1)               'F#
+            32,33    : notes  |= ($1 << 3)               'G
+            34,35    : sharps |=   ($1 << 2)               'G#
+            36,37    : notes  |= ($1 << 4)               'A
+            38,39    : sharps |=   ($1 << 3)               'A#
+            40..42   : notes  |= ($1 << 5)               'B
+
+            43..44   : notes  |= ($1 << 6)               'C4
+            45..47   : sharps |=   ($1 << 4)               'C#
+            48..50   : notes  |= ($1 << 7)               'D
+            51..53   : sharps |=   ($1 << 5)               'D#
+            54..56   : notes  |= ($1 << 8)               'E
+            57..59   : notes  |= ($1 << 9)               'F
+            60..63   : sharps |=   ($1 << 6)               'F#
+            64..67   : notes  |= ($1 << 10)              'G
+            68..71   : sharps |=   ($1 << 7)               'G#
+            72..75   : notes  |= ($1 << 11)              'A
+            76..79   : sharps |=   ($1 << 8)               'A#
+            80..84   : notes  |= ($1 << 12)              'B
+
+            85..89   : notes  |= ($1 << 13)              'C5
+            90..95   : sharps |=   ($1 << 9)               'C#
+            96..100  : notes  |= ($1 << 14)              'D
+            101..106 : sharps |=   ($1 << 10)              'D#
+            107..113 : notes  |= ($1 << 15)              'E
+            114..119 : notes  |= ($1 << 16)              'F
+            120..126 : sharps |=   ($1 << 11)              'F#
+            127..134 : notes  |= ($1 << 17)              'G
+            135..142 : sharps |=   ($1 << 12)              'G#
+            143..150 : notes  |= ($1 << 18)              'A
+            151..159 : sharps |=   ($1 << 13)              'A#
+            160..169 : notes  |= ($1 << 19)              'B
+
+            170..179 : notes  |= ($1 << 20)              'C6
+            180..190 : sharps |=   ($1 << 14)              'C#
+            170..179 : notes  |= ($1 << 21)              'D
+            180..190 : sharps |=   ($1 << 15)              'D#
+            170..179 : notes  |= ($1 << 22)              'E
+}
