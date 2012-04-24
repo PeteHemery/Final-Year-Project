@@ -61,7 +61,7 @@ VAR
   word  real_buffer[fft#NN*num_of_ffts]
   word  imag_buffer[fft#NN*num_of_ffts]
 
-  long  hamming_window[fft#NN]
+'  long  hamming_window[fft#NN]
   word  one_fft_audio_buffer[fft#NN*((!(num_of_ffts >> 1)) & 1)]
 
 OBJ
@@ -104,21 +104,17 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, audio_time, audio_max
 '' w(n) = 0.54 - 0.46 cos (2πn / N - 1)
 '' w(0) = 0.54 + 0.46 cos (2πn / N - 1)
   pst.Str(String(pst#NL,"Start"))
+  pst.dec(pst_on)
+  pst.newline
 
-  repeat i from 0 to (fft#NN / 2) -1
-    long[@hamming_window][i] := F32.FSub(F32.FDiv(F32.FFloat(54),F32.FFloat(100)),F32.FMul(F32.FDiv(F32.FFloat(46),F32.FFloat(100)),F32.cos(F32.FDiv(F32.FMul(F32.FMul(F32.FFloat(2),pi),F32.FFloat(i)),F32.FFloat(fft#NN-1)))))
-
-{    if i // 16 == 0
-      pst.str(string(pst#NL,"        word  "))
-    else
-      pst.str(string(", "))
-'    pst.dec(i)
-'    pst.char(":")
-'    pst.char(" ")
-    pst.dec(F32.FRound(F32.FMul(long[@hamming_window][i],F32.FFloat(1024))))
-    'pst.newline
+'  repeat i from 0 to fft#NN -1
+'    long[@hamming_window][i] := F32.FSub(F32.FDiv(F32.FFloat(54),F32.FFloat(100)),F32.FMul(F32.FDiv(F32.FFloat(46),F32.FFloat(100)),F32.cos(F32.FDiv(F32.FMul(F32.FMul(F32.FFloat(2),pi),F32.FFloat(i)),F32.FFloat(fft#NN-1)))))
+{    pst.dec(i)
+    pst.char(":")
+    pst.char(" ")
+    pst.dec(F32.FRound(F32.FMul(long[@hamming_window][i],F32.FFloat(1000))))
+    pst.newline
 }
-  repeat
 
   if pst_on
     pst.Str(String(pst#NL,"Start"))
@@ -195,9 +191,10 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, audio_time, audio_max
 {        pst.Str(String(pst#NL,"Audio Output"))
         pst.dec(long[@one_fft_flag])
         pst.newline
-}        repeat i from 0 to fft#NN -1
+}
+{        repeat i from 0 to fft#NN -1
           word[@real_buffer][i] := F32.FRound(F32.FMul(F32.FFloat(~~word[@real_buffer][i]),hamming_window[i]))' & $FFFF
-{
+}{
           pst.dec(i)
           pst.char(":")
           pst.char(" ")
@@ -247,7 +244,7 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, audio_time, audio_max
           pst.ClearEnd
           pst.NewLine
 }
-
+{
     repeat i from 0 to num_of_ffts - 1
       fft_flag_val[i] := long[@fft_flag][i]
       fft_time_val[i] := long[@fft_time][i]
@@ -267,8 +264,8 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, audio_time, audio_max
 }
         fft_flag_prev[i] := fft_flag_val[i]
         fft_time_prev[i] := fft_time_val[i]
-
-        temp := 0
+}
+{        temp := 0
         if fft_flag_val[i] <> 0
 '          pst.Str(String("FFT Output: ",pst#NL))
           repeat i from 24 to 200'(fft#NN /2) -1            '0 and 1 are always high, it looks like
@@ -290,7 +287,7 @@ pub launch | i, j, vga_cog, pst_cog, audio_cog, countdown, audio_time, audio_max
 
         if temp == 1
           pst.Str(String(pst#NL,"Notes Detected!",pst#NL))
-
+}
 PUB setup_pointers | i
   'setup list of pointers for sampler object
   long[@aud_flag] := 3+(num_of_ffts * 2)   'number of parameters being passed
@@ -308,6 +305,7 @@ PUB setup_pointers | i
       long[@fft_flag][i] := 1         'not ready to go
       long[@fft_flag_ptr][i] := @fft_flag[i]
       long[@buffer_ptr][i] := @real_buffer[i*fft#NN]
+
 PRI note_worthy(freq) | i, j, lnote, oct, cents, note, char1, char2
 {{
            n / 12

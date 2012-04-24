@@ -32,9 +32,8 @@ VAR
   long time_ptr
   long real_ptr
   long imag_ptr
-  long scrn_ptr
 
-PUB start(in_flag_ptr,in_time_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
+PUB start(in_flag_ptr,in_time_ptr,in_real_ptr,in_imag_ptr) : okay
 {{
  Start - This function populates the local pointers with values passed from the Top Level Object,
          then launches the PASM FFT object on a cog and passes the first address of the parameter list.
@@ -45,7 +44,6 @@ PUB start(in_flag_ptr,in_time_ptr,in_real_ptr,in_imag_ptr,in_scrn_ptr) : okay
   time_ptr := in_time_ptr
   real_ptr := in_real_ptr
   imag_ptr := in_imag_ptr
-  scrn_ptr := in_scrn_ptr
 
   okay := cognew(@init, @flag_ptr) + 1
 
@@ -83,11 +81,6 @@ init                    mov     fft_n,#1
                         add     in_ptr,#4
                         rdlong  fft_imag_buf_ptr,in_ptr 'Imaginary Buffer Pointer - 2048 bytes
 
-                        add     in_ptr,#4
-                        rdlong  cnt_bitmap_ptr,in_ptr   'VGA Screen Bitmap Pointer
-
-                        mov     peak_ptr,asm_flag_ptr
-                        add     peak_ptr,#4             'Peak Value Array Pointer
 
 flag_wait               rdlong  temp,asm_flag_ptr   wz  'wait until flag changes to 0 before looping
               if_nz     jmp     #flag_wait
@@ -97,22 +90,14 @@ flag_wait               rdlong  temp,asm_flag_ptr   wz  'wait until flag changes
 loop                    call    #decimate
                         call    #lets_rock
                         call    #calc_abs
-                        call    #plot
 
-                        add     one,#1
-                        wrlong  one,asm_flag_ptr        'ack
                         mov     asm_cnt,cnt
                         wrlong  asm_cnt,asm_time_ptr    'keep track of the time
 
+'                        add     one,#1
+                        wrlong  one,asm_flag_ptr        'ack
+
                         jmp     #flag_wait
-
-'inserted cog stop instead of infinite loop
-                        'cogid   cog_id
-                        'cogstop cog_id
-'end
-
-'init_end               'jmp     #init_end               ' end
-
 
 
 ' bit-reversal, uses the nice rev instruction
@@ -405,71 +390,13 @@ calc_abs_5              rdword   fft_qr,fft_fr_ii
                         add      fft_fr_ii,#2          ' next word
                         djnz     fft_ii,#calc_abs_5
 calc_abs_ret            ret
- 
-' This routine will draw the spectrum in a 1bpp 320x240 bitmap
- 
-plot                    mov      fft_ii,#40
-                        mov      fft_jj,#0
- 
-                        mov      fft_fr_ii,fft_real_buf_ptr
-plot_8p                 mov      fft_k,#$80
-                        rdword   fft_qr,fft_fr_ii
-                        add      fft_fr_ii,#2
-                        call     #putpix
-                        shr      fft_k,#1
-                        rdword   fft_qr,fft_fr_ii
-                        add      fft_fr_ii,#2
-                        call     #putpix
-                        shr      fft_k,#1
-                        rdword   fft_qr,fft_fr_ii
-                        add      fft_fr_ii,#2
-                        call     #putpix
-                        shr      fft_k,#1
-                        rdword   fft_qr,fft_fr_ii
-                        add      fft_fr_ii,#2
-                        call     #putpix
-                        shr      fft_k,#1
-                        rdword   fft_qr,fft_fr_ii
-                        add      fft_fr_ii,#2
-                        call     #putpix
-                        shr      fft_k,#1
-                        rdword   fft_qr,fft_fr_ii
-                        add      fft_fr_ii,#2
-                        call     #putpix
-                        shr      fft_k,#1
-                        rdword   fft_qr,fft_fr_ii
-                        add      fft_fr_ii,#2
-                        call     #putpix
-                        shr      fft_k,#1
-                        rdword   fft_qr,fft_fr_ii
-                        add      fft_fr_ii,#2
-                        call     #putpix
-                        add      fft_jj,#1
-                        djnz     fft_ii,#plot_8p
- 
-plot_ret                ret
- 
-putpix                  mov      fft_qi,#239
-                        max      fft_qi,fft_qr
-                        mov      fft_qr,#239
-                        sub      fft_qr,fft_qi
-                        shl      fft_qr,#3
-                        mov      fft_qi,fft_qr
-                        shl      fft_qr,#2
-                        add      fft_qr,fft_qi
-                        add      fft_qr,cnt_bitmap_ptr
-                        add      fft_qr,fft_jj
-                        rdbyte   fft_ll,fft_qr
-                        or       fft_ll,fft_k
-                        wrbyte   fft_ll,fft_qr
-putpix_ret              ret
+
 
 ' constants
 cnt_sgn                 long    $8000
 cnt_sin_90              long    $0800
 cnt_sin_180             long    $1000
 cnt_sin_table           long    $7000
-cnt_bitmap_ptr          long    $4000
 cnt_add_ptr             long    512
  
 ' Variables
@@ -500,24 +427,14 @@ fft_sgnwr               long    0  ' sign of wr
 fft_sgnwi               long    0  ' sign of wi
 
 
-peak_ptr                long    0
-peak_1                  long    0
-peak_2                  long    0
-peak_3                  long    0
-peak_4                  long    0
-
-timer_val               long    0
-
 in_ptr                  long    0
 asm_flag_ptr            long    0
 asm_time_ptr            long    0
 asm_cnt                 long    0
 
-asm_window_ptr          long    0
-cog_id                  long    0        
 temp                    long    0
 zero                    long    0
-one                     long    0
+one                     long    1
 
 ''=======[ License ]========================================================== 
 {{

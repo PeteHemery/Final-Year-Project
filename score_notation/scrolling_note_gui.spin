@@ -43,17 +43,108 @@ OBJ
   gr    : "vga graphics ASM"
 
 VAR
-  long  plot_flag
+
   long  colors_ptr
 
   long  stack[40]
+'  word  x
 
   long  notes, sharps
+{
+PUB start | y
+
+  gr.start
+
+  gr.pointcolor(1)
+
+  colors_ptr := gr.get_colors_address
+
+  repeat x from 0 to 14
+    repeat y from 0 to 9
+      gr.color(x*10+y,$00FF) 'black on white
+'      gr.color(x*10+y,$FF00) 'white on black
+{
+        case y
+
+          'colourful foreground
+          0     : gr.color(x*10+y,$FF00)
+          1..3  : gr.color(x*10+y,$00 + (y << 2) << 8)
+          4     : gr.color(x*10+y,$00 + ($1 << 4 + $2 << 2) << 8)
+          5     : gr.color(x*10+y,$00 + ($1 << 6 + $2 << 4 + $1 << 2) << 8)
+          6     : gr.color(x*10+y,$00 + ($1 << 6 + $3 << 4 + $1 << 2) << 8)
+          7     : gr.color(x*10+y,$00 + ($3 << 6 + $2 << 4 + $0 << 2) << 8)
+          8     : gr.color(x*10+y,$00 + ($3 << 6 + $1 << 4 + $0 << 2) << 8)
+          9     : gr.color(x*10+y,$00 + ($3 << 6 + $0 << 4 + $0 << 2) << 8)
+}
+
+  gr.pointcolor(1)
+  repeat y from 0 to 4
+    gr.line(0,118+(y*14),320,118+(y*14))
+
+  x := 11 'colours change on 32 bit boundary or when x = 10, since notes are drawn up to 10 px behind the scrolling line
+
+PUB gui_update(notes, sharps)| i,y
+
+      'clear the pixels 10 spaces in front of the drawing line
+      gr.pointcolor(0)
+      if x < 310
+        gr.line(x+10,0,x+10,240)
+        gr.pointcolor(1)
+        repeat i from 0 to 4
+          gr.plot(x+10,118+(i*14))
+      else
+        gr.line(x-310,0,x-310,240)
+        gr.pointcolor(1)
+        repeat i from 0 to 4
+          gr.plot(x-310,118+(i*14))
+
+      'if the line reaches the edge of the screen reset its position to 10
+      'notes and sharps are drawing up to 10 pixels to the left of the line
+      if x > 319
+        x := 10
+
+      'draw the scrolling line
+      gr.pointcolor(1)
+      gr.line(x,0,x,240)
+      waitcnt(cnt + scroll_speed)
+      gr.pointcolor(0)
+      gr.line(x,0,x, 240)
+
+
+      'scroll the colours in the background every time the line hits a new tile
+      if x // 32 == 0 OR x == 10
+        wordmove(colors_ptr+2,colors_ptr,tiles - 1)
+        word[colors_ptr] := word[colors_ptr][10]
+
+
+      'notes
+      gr.pointcolor(1)
+'      if notes <> 0
+        repeat i from 0 to 31
+          if notes & (1 << i) <> 0
+            gr.line(x-5,231-(i*7),x-5,228-(i*7))
+            if i // 2 == 0
+              gr.line(x-2,230-(i*7),x-8,230-(i*7))
+
+      'sharps
+'      if sharps <> 0
+        repeat i from 0 to 21
+          if sharps & (1 << i) <> 0
+            gr.pointcolor(1)
+            gr.plot(x-5,226-((i/5)*49)-sharp_offsets[i//5])
+
+
+      gr.pointcolor(1)
+      repeat i from 0 to 4
+        gr.plot(x,118+(i*14))
+
+      x++
+}
 
 PUB start
 
   gr.start
-  notes := sharps := plot_flag := 0
+  notes := sharps := 0
   cognew(GUI_Loop,@stack)
 
 
