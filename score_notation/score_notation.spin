@@ -55,7 +55,8 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
   else
     pst_on := 0
 
-  pst.str(string(pst#NL,"Start"))
+  if pst_on == 1
+    pst.str(string(pst#NL,"Start"))
   gr.start                      'starts 3 cogs - vga driver, graphics driver & scrolling plotter
 
   audio_flag := 3               'will be set to 0 on initialisation
