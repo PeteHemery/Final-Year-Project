@@ -155,9 +155,9 @@ PUB GUI_loop | i,j,x,y
 
     repeat x from 0 to 14
       repeat y from 0 to 9
-        gr.color(x*10+y,$00FF) 'black on white
+'        gr.color(x*10+y,$00FF) 'black on white
 '        gr.color(x*10+y,$FF00) 'white on black
-{
+
         case y
 
           'colourful foreground
@@ -169,7 +169,7 @@ PUB GUI_loop | i,j,x,y
           7     : gr.color(x*10+y,$00 + ($3 << 6 + $2 << 4 + $0 << 2) << 8)
           8     : gr.color(x*10+y,$00 + ($3 << 6 + $1 << 4 + $0 << 2) << 8)
           9     : gr.color(x*10+y,$00 + ($3 << 6 + $0 << 4 + $0 << 2) << 8)
-}
+
 
     gr.pointcolor(1)
     repeat i from 0 to 4
@@ -182,16 +182,18 @@ PUB GUI_loop | i,j,x,y
 
       'clear the pixels 10 spaces in front of the drawing line
       gr.pointcolor(0)
-      if x < 310
-        gr.line(x+10,0,x+10,240)
+      if x < 288                '(320 - 32)
+        gr.line(x+32,0,x+32,240)
         gr.pointcolor(1)
         repeat i from 0 to 4
-          gr.plot(x+10,118+(i*14))
+          gr.plot(x+32,118+(i*14))
       else
-        gr.line(x-310,0,x-310,240)
+        gr.line(x-288,0,x-288,240)
         gr.pointcolor(1)
         repeat i from 0 to 4
-          gr.plot(x-310,118+(i*14))
+          gr.plot(x-288,118+(i*14))
+
+
 
       'if the line reaches the edge of the screen reset its position to 10
       'notes and sharps are drawing up to 10 pixels to the left of the line

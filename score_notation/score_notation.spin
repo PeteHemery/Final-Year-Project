@@ -44,7 +44,6 @@ VAR
 
   word  audio_buffer_1[fft#FFT_SIZE]
   word  audio_buffer_2[fft#FFT_SIZE]
-  word  audio_buffer_3[fft#FFT_SIZE]
 
 PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,audio_startTime, total_startTime,total_endTime
 
@@ -105,9 +104,15 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
       case flag_copy
         0 : repeat k from 0 to 1023
               long[@bx][k] := ~~word[@audio_buffer_2][k]
-
+{
+              pst.dec(k)
+              pst.char(":")
+              pst.dec(||bx[k])
+              pst.newline
+}
         2 : repeat k from 0 to 1023
               long[@bx][k] := ~~word[@audio_buffer_1][k]
+
         other :
             total_endTime := cnt
 
@@ -144,23 +149,23 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
 '      repeat x from 41 to 226   'kalimba range
         if ||bx[x] > threshold        'absolute value
           case x
-            24       : notes  |= (or00)               'D3
+            24       : notes  |= (or00)              'D3
             26       : sharps |=   (or00)               'D#
-            27,28    : notes  |= (or01)               'E
-            29       : notes  |= (or02)               'F
+            27,28    : notes  |= (or01)              'E
+            29       : notes  |= (or02)              'F
             31       : sharps |=   (or01)               'F#
-            32,33    : notes  |= (or03)               'G
+            32,33    : notes  |= (or03)              'G
             34,35    : sharps |=   (or02)               'G#
-            36,37    : notes  |= (or04)               'A
+            36,37    : notes  |= (or04)              'A
             39       : sharps |=   (or03)               'A#
-            41       : notes  |= (or05)               'B
+            41       : notes  |= (or05)              'B
 
-            43..44   : notes  |= (or06)               'C4
+            43..44   : notes  |= (or06)              'C4
             47       : sharps |=   (or04)               'C#
-            49      : notes  |= (or07)               'D
-            52      : sharps |=   (or05)               'D#
-            55      : notes  |= (or08)               'E
-            58      : notes  |= (or09)               'F
+            49       : notes  |= (or07)              'D
+            52       : sharps |=   (or05)               'D#
+            55       : notes  |= (or08)              'E
+            58       : notes  |= (or09)              'F
             61..62   : sharps |=   (or06)               'F#
             65..66   : notes  |= (or10)              'G
             69..70   : sharps |=   (or07)               'G#
@@ -171,43 +176,43 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
             87       : notes  |= (or13)              'C5
             92..93   : sharps |=   (or09)               'C#
             98       : notes  |= (or14)              'D
-            103..104 : sharps |=   (or10)              'D#
+            103..104 : sharps |=   (or10)               'D#
             109..110 : notes  |= (or15)              'E
             116..117 : notes  |= (or16)              'F
-            123..124 : sharps |=   (or11)              'F#
+            123..124 : sharps |=   (or11)               'F#
             130..131 : notes  |= (or17)              'G
-            138..139 : sharps |=   (or12)              'G#
+            138..139 : sharps |=   (or12)               'G#
             146..147 : notes  |= (or18)              'A
-            155..156 : sharps |=   (or13)              'A#
+            155..156 : sharps |=   (or13)               'A#
             164..166 : notes  |= (or19)              'B
 
             173..175 : notes  |= (or20)              'C6
-            184..186 : sharps |=   (or14)              'C#
+            184..186 : sharps |=   (or14)               'C#
             195..197 : notes  |= (or21)              'D
-            206..209 : sharps |=   (or15)              'D#
+            206..209 : sharps |=   (or15)               'D#
             219..221 : notes  |= (or22)              'E
 
             232..234 : notes  |= (or23)              'F
-            245..248 : sharps |=   (or16)              'F#
+            245..248 : sharps |=   (or16)               'F#
             260..263 : notes  |= (or24)              'G
-            276..278 : sharps |=   (or17)              'G#
+            276..278 : sharps |=   (or17)               'G#
             292..295 : notes  |= (or25)              'A
-            309..312 : sharps |=   (or18)              'A#
+            309..312 : sharps |=   (or18)               'A#
             328..331 : notes  |= (or26)              'B
 
             347..350 : notes  |= (or27)              'C7
-            368..371 : sharps |=   (or19)              'C#
+            368..371 : sharps |=   (or19)               'C#
             390..393 : notes  |= (or28)              'D
-            413..417 : sharps |=   (or20)              'D#
+            413..417 : sharps |=   (or20)               'D#
             438..441 : notes  |= (or29)              'E
             464..467 : notes  |= (or30)              'F
-            491..495 : sharps |=   (or21)              'F#
-{
+            491..495 : sharps |=   (or21)               'F#
+
           pst.dec(x)
           pst.char(":")
           pst.dec(||bx[x])
           pst.newline
-}
+
       endTime := cnt
 
       if pst_on == 1

@@ -26,7 +26,7 @@ CON
   sample_rate = CLK_FREQ / (1000 * KHz)  'Hz
 
   averaging = 10                '2-power-n samples to compute average with
-  attenuation = 2               'try 0-4
+  attenuation = 1               'try 0-4
   threshold = $18               'for detecting peak amplitude and zero crossing
                                 '$16 is the lowest without detecting any background noise
     KHz = 7

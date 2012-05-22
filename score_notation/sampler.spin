@@ -24,7 +24,7 @@ CON
 
 'Modify constants below for behaviour changes.
 
-  averaging = 11                '2-power-n samples to compute average with
+  averaging = 10                '2-power-n samples to compute average with
   attenuation = 0               'try 0-4
 
   KHz = 6                       'max 13 with 2 FFTs (for which filtering must be off)
@@ -99,27 +99,41 @@ loop          waitcnt   asm_cnt,asm_cycles              'wait for next CNT value
               sar       asm_sample,#attenuation         'this # controls attenuation (0=none)
 
 :hamming
-{
-              mov       m1, c                              'k1 := (a * (c + d)) / 4096
-              add       m1, d
-              mov       m2, a
-              call      #mul
-              mov       k1, m1
-              sar       k1, #15 - 3
-}
+
               mov       m1, asm_sample
+              mov       table_ptr, #hamming_window
+
               test      asm_flag,#1             wz      'zero flag set when value1 AND value2 = 0
-if_z          mov       t1, peak_load
-if_z          sub       t1, peak_cnt
-if_z          mov       m2, #hamming_window + t1
+
+if_z          mov       t1, peak_load                   '512 - peak_cnt
+if_z          sub       t1, peak_cnt                    'should give 0-511
 
 if_nz         mov       t1, peak_cnt
-if_nz         sub       t1,#1
-if_nz         mov       m2, #hamming_window + t1
+if_nz         sub       t1,#1                           'range from 511-0
+
+              shr       t1,#1                           'hit the same ram location twice (word sized)
+
+              add       table_ptr, t1                   'lookup table offset
+              movs      get_ham, table_ptr              'modify source bits in mov instruction
+
+              cmp       odd_even, #1            wc
+if_c          mov       odd_even, #1
+if_nc         mov       odd_even, #0
+
+
+get_ham       mov       t2, 0-0
+
+if_z_and_c    and       t2, table_mask
+if_z_and_nc   shr       t2, #16
+if_nz_and_c   shr       t2, #16
+if_nz_and_nc  and       t2, table_mask
+
+              mov       m2, t2
+
 
               call      #mul
-              shr       m1,#10
 
+              sar       m1, #10
 
 'Save data to buffer
 '              wrword    asm_sample,in_ptr               'write sample to fft array
@@ -129,6 +143,8 @@ if_nz         mov       m2, #hamming_window + t1
               djnz      peak_cnt,#loop
               mov       peak_cnt,peak_load
 
+              mov       odd_even, #0
+
               'Let caller know every 512 samples
               cmp       asm_flag,#3             wc
 
@@ -137,9 +153,9 @@ if_nc         mov       in_ptr,asm_buffer_ptr           'cog cell holding buffer
 
 if_c          add       asm_flag,#1
 
-              mov       t1,cnt
 
               wrlong    asm_flag,asm_flag_ptr
+              mov       t1,cnt
               wrlong    t1,asm_time_ptr                 'tell caller how long I took
 
 :pksame
@@ -211,7 +227,7 @@ hamming_window
         word  1004, 1005, 1006, 1007, 1007, 1008, 1009, 1010, 1010, 1011, 1012, 1012, 1013, 1013, 1014, 1015
         word  1015, 1016, 1016, 1017, 1017, 1018, 1018, 1019, 1019, 1020, 1020, 1020, 1021, 1021, 1021, 1022
         word  1022, 1022, 1022, 1023, 1023, 1023, 1023, 1023, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024
-        fit   $145
+        fit   $185
 
 '
 ' Data
@@ -244,6 +260,11 @@ asm_time_ptr            long    0
 asm_array_size          long    0
 
 asm_buffer_ptr          long    0
+
+
+table_ptr               long    0
+odd_even                long    0
+table_mask              long    $FFFF
 
 
 asm_cnt                 res     1
