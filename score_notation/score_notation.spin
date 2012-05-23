@@ -104,12 +104,7 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
       case flag_copy
         0 : repeat k from 0 to 1023
               long[@bx][k] := ~~word[@audio_buffer_2][k]
-{
-              pst.dec(k)
-              pst.char(":")
-              pst.dec(||bx[k])
-              pst.newline
-}
+
         2 : repeat k from 0 to 1023
               long[@bx][k] := ~~word[@audio_buffer_1][k]
 
@@ -145,73 +140,119 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
       startTime := cnt
       notes := sharps := 0
 
-      repeat x from 24 to 495   'full range
-'      repeat x from 41 to 226   'kalimba range
-        if ||bx[x] > threshold        'absolute value
-          case x
-            24       : notes  |= (or00)              'D3
-            26       : sharps |=   (or00)               'D#
-            27,28    : notes  |= (or01)              'E
-            29       : notes  |= (or02)              'F
-            31       : sharps |=   (or01)               'F#
-            32,33    : notes  |= (or03)              'G
-            34,35    : sharps |=   (or02)               'G#
-            36,37    : notes  |= (or04)              'A
-            39       : sharps |=   (or03)               'A#
-            41       : notes  |= (or05)              'B
+      if gr#kalimba_on == 1
 
-            43..44   : notes  |= (or06)              'C4
-            47       : sharps |=   (or04)               'C#
-            49       : notes  |= (or07)              'D
-            52       : sharps |=   (or05)               'D#
-            55       : notes  |= (or08)              'E
-            58       : notes  |= (or09)              'F
-            61..62   : sharps |=   (or06)               'F#
-            65..66   : notes  |= (or10)              'G
-            69..70   : sharps |=   (or07)               'G#
-            73..74   : notes  |= (or11)              'A
-            77..78   : sharps |=   (or08)               'A#
-            81..82   : notes  |= (or12)              'B
+        repeat x from 41 to 222   'kalimba range
+          if ||bx[x] > threshold        'absolute value
+            case x
+              41       : notes  |= (or05)              'B
 
-            87       : notes  |= (or13)              'C5
-            92..93   : sharps |=   (or09)               'C#
-            98       : notes  |= (or14)              'D
-            103..104 : sharps |=   (or10)               'D#
-            109..110 : notes  |= (or15)              'E
-            116..117 : notes  |= (or16)              'F
-            123..124 : sharps |=   (or11)               'F#
-            130..131 : notes  |= (or17)              'G
-            138..139 : sharps |=   (or12)               'G#
-            146..147 : notes  |= (or18)              'A
-            155..156 : sharps |=   (or13)               'A#
-            164..166 : notes  |= (or19)              'B
+              43..44   : notes  |= (or06)              'C4
+              47       : sharps |=   (or04)               'C#
+              49       : notes  |= (or07)              'D
+              52       : sharps |=   (or05)               'D#
+              55       : notes  |= (or08)              'E
+              58       : notes  |= (or09)              'F
+              61..62   : sharps |=   (or06)               'F#
+              65..66   : notes  |= (or10)              'G
+              69..70   : sharps |=   (or07)               'G#
+              73..74   : notes  |= (or11)              'A
+              77..78   : sharps |=   (or08)               'A#
+              81..82   : notes  |= (or12)              'B
 
-            173..175 : notes  |= (or20)              'C6
-            184..186 : sharps |=   (or14)               'C#
-            195..197 : notes  |= (or21)              'D
-            206..209 : sharps |=   (or15)               'D#
-            219..221 : notes  |= (or22)              'E
+              87       : notes  |= (or13)              'C5
+              92..93   : sharps |=   (or09)               'C#
+              98       : notes  |= (or14)              'D
+              103..104 : sharps |=   (or10)               'D#
+              109..110 : notes  |= (or15)              'E
+              116..117 : notes  |= (or16)              'F
+              123..124 : sharps |=   (or11)               'F#
+              130..131 : notes  |= (or17)              'G
+              138..139 : sharps |=   (or12)               'G#
+              146..147 : notes  |= (or18)              'A
+              155..156 : sharps |=   (or13)               'A#
+              164..166 : notes  |= (or19)              'B
 
-            232..234 : notes  |= (or23)              'F
-            245..248 : sharps |=   (or16)               'F#
-            260..263 : notes  |= (or24)              'G
-            276..278 : sharps |=   (or17)               'G#
-            292..295 : notes  |= (or25)              'A
-            309..312 : sharps |=   (or18)               'A#
-            328..331 : notes  |= (or26)              'B
+              173..175 : notes  |= (or20)              'C6
+              184..186 : sharps |=   (or14)               'C#
+              195..197 : notes  |= (or21)              'D
+              206..209 : sharps |=   (or15)               'D#
+              219..221 : notes  |= (or22)              'E
 
-            347..350 : notes  |= (or27)              'C7
-            368..371 : sharps |=   (or19)               'C#
-            390..393 : notes  |= (or28)              'D
-            413..417 : sharps |=   (or20)               'D#
-            438..441 : notes  |= (or29)              'E
-            464..467 : notes  |= (or30)              'F
-            491..495 : sharps |=   (or21)               'F#
+        pst.dec(x)
+        pst.char(":")
+        pst.dec(||bx[x])
+        pst.newline
 
-          pst.dec(x)
-          pst.char(":")
-          pst.dec(||bx[x])
-          pst.newline
+      else
+        repeat x from 24 to 495   'full range
+
+          if ||bx[x] > threshold        'absolute value
+            case x
+              24       : notes  |= (or00)              'D3
+              26       : sharps |=   (or00)               'D#
+              27,28    : notes  |= (or01)              'E
+              29       : notes  |= (or02)              'F
+              31       : sharps |=   (or01)               'F#
+              32,33    : notes  |= (or03)              'G
+              34,35    : sharps |=   (or02)               'G#
+              36,37    : notes  |= (or04)              'A
+              39       : sharps |=   (or03)               'A#
+              41       : notes  |= (or05)              'B
+
+              43..44   : notes  |= (or06)              'C4
+              47       : sharps |=   (or04)               'C#
+              49       : notes  |= (or07)              'D
+              52       : sharps |=   (or05)               'D#
+              55       : notes  |= (or08)              'E
+              58       : notes  |= (or09)              'F
+              61..62   : sharps |=   (or06)               'F#
+              65..66   : notes  |= (or10)              'G
+              69..70   : sharps |=   (or07)               'G#
+              73..74   : notes  |= (or11)              'A
+              77..78   : sharps |=   (or08)               'A#
+              81..82   : notes  |= (or12)              'B
+
+              87       : notes  |= (or13)              'C5
+              92..93   : sharps |=   (or09)               'C#
+              98       : notes  |= (or14)              'D
+              103..104 : sharps |=   (or10)               'D#
+              109..110 : notes  |= (or15)              'E
+              116..117 : notes  |= (or16)              'F
+              123..124 : sharps |=   (or11)               'F#
+              130..131 : notes  |= (or17)              'G
+              138..139 : sharps |=   (or12)               'G#
+              146..147 : notes  |= (or18)              'A
+              155..156 : sharps |=   (or13)               'A#
+              164..166 : notes  |= (or19)              'B
+
+              173..175 : notes  |= (or20)              'C6
+              184..186 : sharps |=   (or14)               'C#
+              195..197 : notes  |= (or21)              'D
+              206..209 : sharps |=   (or15)               'D#
+              219..221 : notes  |= (or22)              'E
+
+              232..234 : notes  |= (or23)              'F
+              245..248 : sharps |=   (or16)               'F#
+              260..263 : notes  |= (or24)              'G
+              276..278 : sharps |=   (or17)               'G#
+              292..295 : notes  |= (or25)              'A
+              309..312 : sharps |=   (or18)               'A#
+              328..331 : notes  |= (or26)              'B
+
+              347..350 : notes  |= (or27)              'C7
+              368..371 : sharps |=   (or19)               'C#
+              390..393 : notes  |= (or28)              'D
+              413..417 : sharps |=   (or20)               'D#
+              438..441 : notes  |= (or29)              'E
+              464..467 : notes  |= (or30)              'F
+              491..495 : sharps |=   (or21)               'F#
+        pst.dec(x)
+        pst.char(":")
+        pst.dec(||bx[x])
+        pst.newline
+
+'end of if kalimba_on
 
       endTime := cnt
 
@@ -237,8 +278,7 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
 
       longfill(@by,0,fft#FFT_SIZE)
 
-      startTime := cnt
-      total_endTime := cnt
+      total_endTime := startTime := cnt
 
       if pst_on == 1
         pst.str(string("main loop run time = "))
@@ -281,6 +321,7 @@ or19          long      $00080000
 or18          long      $00040000
 or17          long      $00020000
 or16          long      $00010000
+
 or15          long      $00008000
 or14          long      $00004000
 or13          long      $00002000
@@ -298,48 +339,3 @@ or02          long      $00000004
 or01          long      $00000002
 or00          long      $00000001
 
-{
-          case x
-            24,25    : notes  |= ($1 << 0)               'D3
-            26       : sharps |=   ($1 << 0)               'D#
-            27,28    : notes  |= ($1 << 1)               'E
-            29       : notes  |= ($1 << 2)               'F
-            30,31    : sharps |=   ($1 << 1)               'F#
-            32,33    : notes  |= ($1 << 3)               'G
-            34,35    : sharps |=   ($1 << 2)               'G#
-            36,37    : notes  |= ($1 << 4)               'A
-            38,39    : sharps |=   ($1 << 3)               'A#
-            40..42   : notes  |= ($1 << 5)               'B
-
-            43..44   : notes  |= ($1 << 6)               'C4
-            45..47   : sharps |=   ($1 << 4)               'C#
-            48..50   : notes  |= ($1 << 7)               'D
-            51..53   : sharps |=   ($1 << 5)               'D#
-            54..56   : notes  |= ($1 << 8)               'E
-            57..59   : notes  |= ($1 << 9)               'F
-            60..63   : sharps |=   ($1 << 6)               'F#
-            64..67   : notes  |= ($1 << 10)              'G
-            68..71   : sharps |=   ($1 << 7)               'G#
-            72..75   : notes  |= ($1 << 11)              'A
-            76..79   : sharps |=   ($1 << 8)               'A#
-            80..84   : notes  |= ($1 << 12)              'B
-
-            85..89   : notes  |= ($1 << 13)              'C5
-            90..95   : sharps |=   ($1 << 9)               'C#
-            96..100  : notes  |= ($1 << 14)              'D
-            101..106 : sharps |=   ($1 << 10)              'D#
-            107..113 : notes  |= ($1 << 15)              'E
-            114..119 : notes  |= ($1 << 16)              'F
-            120..126 : sharps |=   ($1 << 11)              'F#
-            127..134 : notes  |= ($1 << 17)              'G
-            135..142 : sharps |=   ($1 << 12)              'G#
-            143..150 : notes  |= ($1 << 18)              'A
-            151..159 : sharps |=   ($1 << 13)              'A#
-            160..169 : notes  |= ($1 << 19)              'B
-
-            170..179 : notes  |= ($1 << 20)              'C6
-            180..190 : sharps |=   ($1 << 14)              'C#
-            170..179 : notes  |= ($1 << 21)              'D
-            180..190 : sharps |=   ($1 << 15)              'D#
-            170..179 : notes  |= ($1 << 22)              'E
-}
