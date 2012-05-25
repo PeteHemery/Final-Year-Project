@@ -31,7 +31,7 @@ SimpleNum(x,y,DecimalNumber,DecimalPoint) ' Basic Decimal number printing at loc
 }
 
 #define KALIMBA
-#define COLOURFUL
+'#define COLOURFUL
 
 CON
   _clkmode = xtal1 + pll16x
@@ -40,7 +40,7 @@ CON
   '512x384
   tiles = gr#tiles
 
-  scroll_speed = 2_000_000
+  scroll_speed = 2_00_000
 
 #ifdef KALIMBA
   kalimba_on = 1

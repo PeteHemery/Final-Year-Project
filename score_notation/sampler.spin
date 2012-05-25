@@ -29,9 +29,15 @@ CON
 
   KHz = 6                       'max 13 with 2 FFTs (for which filtering must be off)
 
+  filtering = 1                 'turn off for different sample rates than provided
+
+OBJ
+'' Finite Impulse Response Low-Pass filtering with 1.5 KHz cut off
+  fir : "fir_filter_6k"
 
 VAR
   long  cog                                             'Cog flag/id
+  long  fir_busy,fir_data
 
 PUB start (flagptr): okay
 {{
@@ -39,6 +45,10 @@ PUB start (flagptr): okay
           into the PASM object and launches the cog. Parameters should be consecutive in Hub RAM.
           Depending on the value of the filtering constant, FIR low pass filter may be applied.
 }}
+  if(filtering == 1)
+    asm_fir_busy := @fir_busy
+    asm_fir_data := @fir_data
+    fir.start(@fir_busy)
 
   stop
   okay := cog := cognew(@asm_entry, flagptr) + 1 'launch assembly program into a COG, store the cog id and return it
@@ -83,6 +93,17 @@ loop          waitcnt   asm_cnt,asm_cycles              'wait for next CNT value
               sub       asm_sample,asm_old
               add       asm_old,asm_sample
 
+'Filtering
+              cmp       filterswitch,#0         wz
+if_z          jmp       #:avejump
+
+              wrlong    asm_sample,asm_fir_data
+              mov       t1,#1
+              wrlong    t1,asm_fir_busy
+
+:fir_loop     rdlong    t1,asm_fir_busy
+              tjnz      t1,#:fir_loop
+              rdword    asm_sample,asm_fir_data
 
 'Averaging
 :avejump      add       average,asm_sample              'compute average periodically so that
@@ -106,7 +127,7 @@ loop          waitcnt   asm_cnt,asm_cycles              'wait for next CNT value
               test      asm_flag,#1             wz      'zero flag set when value1 AND value2 = 0
 
 if_z          mov       t1, peak_load                   '512 - peak_cnt
-if_z          sub       t1, peak_cnt                    'should give 0-511
+if_z          sub       t1, peak_cnt                    'should give 0-511 sequentially
 
 if_nz         mov       t1, peak_cnt
 if_nz         sub       t1,#1                           'range from 511-0
@@ -121,7 +142,7 @@ if_c          mov       odd_even, #1
 if_nc         mov       odd_even, #0
 
 
-get_ham       mov       t2, 0-0
+get_ham       mov       t2, 0-0                         'src address modified above
 
 if_z_and_c    and       t2, table_mask
 if_z_and_nc   shr       t2, #16
@@ -261,6 +282,9 @@ asm_array_size          long    0
 
 asm_buffer_ptr          long    0
 
+asm_fir_busy            long    0
+asm_fir_data            long    0
+filterswitch            long    filtering
 
 table_ptr               long    0
 odd_even                long    0

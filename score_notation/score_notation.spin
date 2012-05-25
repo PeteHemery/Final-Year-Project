@@ -247,10 +247,10 @@ PUB start | x,y,i,k,startTime, endTime, flag_copy, first_trigger, audio_endTime,
               438..441 : notes  |= (or29)              'E
               464..467 : notes  |= (or30)              'F
               491..495 : sharps |=   (or21)               'F#
-        pst.dec(x)
-        pst.char(":")
-        pst.dec(||bx[x])
-        pst.newline
+            pst.dec(x)
+            pst.char(":")
+            pst.dec(||bx[x])
+            pst.newline
 
 'end of if kalimba_on
 
