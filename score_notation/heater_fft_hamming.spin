@@ -92,11 +92,16 @@
 '   - changed behavior of CMD_MAGNITUDE
 '   - added CMD_POWER
 '----------------------------------------------------------------------------------------------------------------------
+' 2012-06-18
+' Modifications by Pete Hemery:
+'   - commented out #defined sections so PropellerTool can compile object
+'   - renamed 'mul' subroutine to multi to stop compiler error
+'----------------------------------------------------------------------------------------------------------------------
 'User optimization controls
-#define PASM_BUTTERFLIES       'Set this for fast PASM FFT, about 30ms
+''#define PASM_BUTTERFLIES       'Set this for fast PASM FFT, about 30ms
 '#define SPIN_BUTTERFLIES      'THIS DOES NOT WORK SINCE v2.1. Or set this for slow Spin FFT, about 1800ms!!
 
-#define USE_FASTER_MULT        'Set this for faster multiply
+''#define USE_FASTER_MULT        'Set this for faster multiply
 '#define USE_FASTER_SQRT       'Set this for faster but much bigger square root.
 '----------------------------------------------------------------------------------------------------------------------
 
@@ -124,15 +129,15 @@ VAR
 
 '----------------------------------------------------------------------------------------------------------------------
 PUB start (mailp)
-#ifdef PASM_BUTTERFLIES
+''#ifdef PASM_BUTTERFLIES
     mailboxp := mailp
     LONG[mailboxp] := 0
     cognew (@bfly, mailp)     'Check error?
-#endif
+''#endif
 '----------------------------------------------------------------------------------------------------------------------
 
 '----------------------------------------------------------------------------------------------------------------------
-#ifdef SPIN_BUTTERFLIES
+{{#ifdef SPIN_BUTTERFLIES
 VAR
     long level
     long flight_max
@@ -272,8 +277,8 @@ PUB bfly (bxp, byp)
 '----------------------------------------------------------------------------------------------------------------------
 
 '----------------------------------------------------------------------------------------------------------------------
-#endif
-#ifdef PASM_BUTTERFLIES
+#endif   }}
+'#ifdef PASM_BUTTERFLIES
 PUB butterflies(cmd, bxp, byp)
     LONG[mailboxp + 4] := bxp                          'Address of x buffer
     LONG[mailboxp + 8] := byp                          'Address of y buffer
@@ -308,12 +313,12 @@ bfly          mov       mb_ptr, par
               add       b, # ($4000 >> LOG2_FFT_SIZE)
               mov       m1, :c_046
               mov       m2, d
-              call      #mul
+              call      #multi
               sar       m1, #16
               add       m1, :c_054
               mov       k1, m1
               rdlong    m2, b0x_ptr
-              call      #mul
+              call      #multi
               sar       m1, #16
               wrlong    m1, b0x_ptr
               add       b0x_ptr, #4
@@ -322,7 +327,7 @@ bfly          mov       mb_ptr, par
     if_z      jmp       #:no_complex
               rdlong    m2, b0y_ptr
               mov       m1, k1
-              call      #mul
+              call      #multi
               sar       m1, #16
               wrlong    m1, b0y_ptr
               add       b0y_ptr, #4
@@ -444,21 +449,21 @@ bfly          mov       mb_ptr, par
               mov       m1, c                              'k1 := (a * (c + d)) / 4096
               add       m1, d
               mov       m2, a
-              call      #mul
+              call      #multi
               mov       k1, m1
               sar       k1, #15 - 3
 
               mov       m1, a                              'k2 := (d * (a + b)) / 4096
               add       m1, b
               mov       m2, d
-              call      #mul
+              call      #multi
               mov       k2, m1
               sar       k2, #15 - 3
 
               mov       m1, b                              'k3 := (c * (b - a)) / 4096
               sub       m1, a
               mov       m2, c
-              call      #mul
+              call      #multi
               mov       k3, m1
               sar       k3, #15 - 3
 
@@ -530,13 +535,13 @@ bfly          mov       mb_ptr, par
 :mloop        rdlong    m1, b0x_ptr
               sar       m1, #LOG2_FFT_SIZE - 1
               mov       m2, m1
-              call      #mul
+              call      #multi
               mov       input, m1
 
               rdlong    m1, b0y_ptr
               sar       m1, #LOG2_FFT_SIZE - 1
               mov       m2, m1
-              call      #mul
+              call      #multi
               add       input, m1
 
               test      command, #CMD_MAGNITUDE wz         'Calculate magnitudes?
@@ -557,8 +562,8 @@ bfly          mov       mb_ptr, par
 '----------------------------------------------------------------------------------------------------------------------
 
 '----------------------------------------------------------------------------------------------------------------------
-mul           'Account for sign
-#ifdef USE_FASTER_MULT
+multi         'Account for sign
+'#ifdef USE_FASTER_MULT
               abs       m1, m1 wc
               negc      m2, m2
               abs       m2, m2 wc
@@ -568,10 +573,10 @@ mul           'Account for sign
               min       m2, m1
               'Correct the sign of the adder
               negc      m2, m2
-#else
+{{#else
               abs       m3, m1 wc
               negc      m2, m2
-#endif
+#endif}}
               'My accumulator
               mov       m1, #0
               'Do the work
@@ -579,7 +584,7 @@ mul           'Account for sign
         if_c  add       m1, m2                             'If it was a 1, add adder to accumulator
               shl       m2, #1                             'Shift the adder left by 1 bit
         if_nz jmp       #:mul_loop                         'Continue as long as there are no more 1's
-mul_ret       ret
+multi_ret     ret
 
 m1            long      0
 m2            long      0
@@ -601,7 +606,7 @@ getcos_ret ret                     '39..54 clocks
 '----------------------------------------------------------------------------------------------------------------------
 
 '----------------------------------------------------------------------------------------------------------------------
-#ifdef USE_FASTER_SQRT
+''#ifdef USE_FASTER_SQRT
 'Faster code for square root (Chip Gracey after discussion with lonesock on Propeller Forums):
 sqrt          mov       root, h40000000
               cmpsub    input, root  wc
@@ -695,7 +700,7 @@ h00004000     long      $00004000
 h00001000     long      $00001000
 h00000400     long      $00000400
 
-#else
+{{#else
 
 'Faster code for square root (Chip Gracey after discussion with lonesock on Propeller Forums):
 sqrt          mov       root, #0                           'Reset root
@@ -707,7 +712,7 @@ sqrt          mov       root, #0                           'Reset root
               shr       mask, #2                           'Shift mask down
               tjnz      mask, #:sqloop                     'Loop until mask empty
 sqrt_ret      ret
-#endif
+#endif}}
 h40000000     long      $40000000
 '----------------------------------------------------------------------------------------------------------------------
 
@@ -754,8 +759,8 @@ root          long      0
 mask          long      0
 input         long      0
 '----------------------------------------------------------------------------------------------------------------------
-              fit       496
-#endif
+              fit       496 
+'#endif
 '----------------------------------------------------------------------------------------------------------------------
 
 '----------------------------------------------------------------------------------------------------------------------
@@ -784,4 +789,3 @@ input         long      0
 
 '----------------------------------------------------------------------------------------------------------------------
 'The end.
-
