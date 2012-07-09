@@ -10,9 +10,11 @@
 ''
 '' This program uses the Propeller Demo Board, Rev C
 ''
-'' The microphone input is digitized and the samples are displayed on a VGA monitor.
-'' The threshold constant controls a Schmitt trigger,
-''  used to accurately counter the number of times the wave crosses zero.
+'' The microphone input is digitized and the samples are displayed on
+''  a VGA monitor. The 'threshold' constant controls a Schmitt trigger, 
+''  which is placed above and below zero.
+'' It's used to accurately count the number of times the 
+''  wave crosses zero by measuring it as a square wave.
 '' The number of CPU cycles between crossings is stored and then averaged.
 '' When 100 crossings (50 waves) have been detected,
 ''  the frequency and note offset is output on the serial console. 
