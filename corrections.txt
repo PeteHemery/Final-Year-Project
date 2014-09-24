@@ -1,0 +1,23 @@
+hartley transform reference number is wrong. (says XII but is XI in the reference section) Reset references?
+
+Page 40:
+
+or replace the hard coded values with dynamically assigned pointers passed from 
+a
+calling method.
+
+
+
+Page 42:
+
+The solution involves checking if the current sample is above the preset threshold. The variables used are:
+counting and complete flags, window begin and signal start time clock values and a cycles counter. (Possibly more commas)?
+The value of clock register is saved at the beginning of each new window. When a new signal that
+is
+ above a preset threshold is detected the value of the clock register is saved.
+
+
+One problem is that if there is a background noise that doesn’t allow the detected signal to fall below the
+threshold before the note has finished. The total average of frequency estimation changes to encompass the
+background noise and accuracy is lost.
+(Should it be a semi-colon, or a comma?)
